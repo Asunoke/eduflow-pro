@@ -1,4 +1,27 @@
-// EduFlow Types - School Management System
+// EduFlow Types - Système Scolaire Malien
+
+// Cycles du système éducatif malien
+export type CycleType = 'jardin' | 'primaire' | 'college' | 'lycee';
+
+export interface Cycle {
+  id: string;
+  type: CycleType;
+  name: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface Level {
+  id: string;
+  name: string;
+  shortName: string;
+  cycleType: CycleType;
+  order: number;
+  isExamYear: boolean; // DEF (9ème) ou Bac (12ème)
+  examName?: string;
+  createdAt: string;
+}
 
 export interface Student {
   id: string;
@@ -27,14 +50,6 @@ export interface Class {
   academicYear: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Level {
-  id: string;
-  name: string;
-  category: 'primary' | 'college' | 'lycee' | 'university';
-  order: number;
-  createdAt: string;
 }
 
 export interface Teacher {
@@ -131,10 +146,12 @@ export interface SchoolSettings {
   website?: string;
   logo?: string;
   currentAcademicYear: string;
-  gradingScale: 'french' | 'american' | 'custom';
+  gradingScale: 'ten' | 'twenty'; // Notation sur 10 ou 20
   passingGrade: number;
   currency: string;
   language: 'fr' | 'en';
+  // Cycles actifs de l'école
+  activeCycles: CycleType[];
   createdAt: string;
   updatedAt: string;
 }
@@ -148,9 +165,14 @@ export interface AcademicYear {
   createdAt: string;
 }
 
+// Décision de fin d'année
+export type AcademicDecision = 'admis' | 'redouble' | 'admis_reserve' | 'exclu';
+
 export interface BulletinData {
   student: Student;
   class: Class;
+  level: Level;
+  cycle: Cycle;
   period: Period;
   grades: {
     subject: Subject;
@@ -162,7 +184,7 @@ export interface BulletinData {
   classRank: number;
   totalStudents: number;
   appreciation: string;
-  decision?: string;
+  decision?: AcademicDecision;
 }
 
 // Dashboard Stats
@@ -177,12 +199,53 @@ export interface DashboardStats {
   averageGrade: number;
 }
 
-// Category Labels
-export const LEVEL_CATEGORIES: Record<Level['category'], string> = {
-  primary: 'Primaire',
+// Labels pour les cycles maliens
+export const CYCLE_LABELS: Record<CycleType, string> = {
+  jardin: 'Jardin d\'enfants / Crèche',
+  primaire: 'Enseignement Primaire',
+  college: 'Enseignement Secondaire - Collège',
+  lycee: 'Enseignement Secondaire - Lycée',
+};
+
+export const CYCLE_SHORT_LABELS: Record<CycleType, string> = {
+  jardin: 'Jardin',
+  primaire: 'Primaire',
   college: 'Collège',
   lycee: 'Lycée',
-  university: 'Université',
+};
+
+// Niveaux par défaut du système malien
+export const MALI_LEVELS: Omit<Level, 'id' | 'createdAt'>[] = [
+  // Jardin d'enfants
+  { name: 'Petite Section', shortName: 'PS', cycleType: 'jardin', order: 1, isExamYear: false },
+  { name: 'Moyenne Section', shortName: 'MS', cycleType: 'jardin', order: 2, isExamYear: false },
+  { name: 'Grande Section', shortName: 'GS', cycleType: 'jardin', order: 3, isExamYear: false },
+  
+  // Primaire
+  { name: '1ère Année', shortName: '1A', cycleType: 'primaire', order: 4, isExamYear: false },
+  { name: '2ème Année', shortName: '2A', cycleType: 'primaire', order: 5, isExamYear: false },
+  { name: '3ème Année', shortName: '3A', cycleType: 'primaire', order: 6, isExamYear: false },
+  { name: '4ème Année', shortName: '4A', cycleType: 'primaire', order: 7, isExamYear: false },
+  { name: '5ème Année', shortName: '5A', cycleType: 'primaire', order: 8, isExamYear: false },
+  { name: '6ème Année', shortName: '6A', cycleType: 'primaire', order: 9, isExamYear: false },
+  
+  // Collège
+  { name: '7ème Année', shortName: '7A', cycleType: 'college', order: 10, isExamYear: false },
+  { name: '8ème Année', shortName: '8A', cycleType: 'college', order: 11, isExamYear: false },
+  { name: '9ème Année (DEF)', shortName: '9A', cycleType: 'college', order: 12, isExamYear: true, examName: 'DEF' },
+  
+  // Lycée
+  { name: '10ème Année', shortName: '10A', cycleType: 'lycee', order: 13, isExamYear: false },
+  { name: '11ème Année', shortName: '11A', cycleType: 'lycee', order: 14, isExamYear: false },
+  { name: '12ème Année (Baccalauréat)', shortName: '12A', cycleType: 'lycee', order: 15, isExamYear: true, examName: 'Baccalauréat' },
+];
+
+// Labels des décisions académiques
+export const ACADEMIC_DECISION_LABELS: Record<AcademicDecision, string> = {
+  admis: 'Admis',
+  redouble: 'Redouble',
+  admis_reserve: 'Admis sous réserve',
+  exclu: 'Exclu',
 };
 
 export const STUDENT_STATUS: Record<Student['status'], string> = {
@@ -223,4 +286,9 @@ export const GRADE_TYPES: Record<Grade['type'], string> = {
   homework: 'Devoir',
   oral: 'Oral',
   project: 'Projet',
+};
+
+export const GRADING_SCALE_LABELS: Record<SchoolSettings['gradingScale'], string> = {
+  ten: 'Notation sur 10',
+  twenty: 'Notation sur 20',
 };

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -25,11 +26,26 @@ import {
   Shield,
   Database,
   Globe,
+  GraduationCap,
+  Baby,
+  BookOpen,
+  School,
+  Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { CycleType } from '@/types';
+import { CYCLE_LABELS, GRADING_SCALE_LABELS } from '@/types';
+
+// Icône par cycle
+const CYCLE_ICONS: Record<CycleType, React.ReactNode> = {
+  jardin: <Baby className="h-5 w-5" />,
+  primaire: <BookOpen className="h-5 w-5" />,
+  college: <School className="h-5 w-5" />,
+  lycee: <Award className="h-5 w-5" />,
+};
 
 export default function Settings() {
-  const { settings, academicYears, updateSettings, exportData, importData, resetData, setActiveAcademicYear } = useStore();
+  const { settings, academicYears, updateSettings, exportData, importData, resetData, setActiveAcademicYear, toggleCycleActive } = useStore();
   const [formData, setFormData] = useState(settings);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +99,11 @@ export default function Settings() {
     setIsResetOpen(false);
   };
 
+  const handleToggleCycle = (cycle: CycleType) => {
+    toggleCycleActive(cycle);
+    setFormData(useStore.getState().settings);
+  };
+
   return (
     <MainLayout>
       <PageHeader title="Paramètres" description="Configuration de l'établissement et du système">
@@ -93,10 +114,14 @@ export default function Settings() {
       </PageHeader>
 
       <Tabs defaultValue="school" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="school" className="gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">École</span>
+          </TabsTrigger>
+          <TabsTrigger value="cycles" className="gap-2">
+            <GraduationCap className="h-4 w-4" />
+            <span className="hidden sm:inline">Cycles</span>
           </TabsTrigger>
           <TabsTrigger value="academic" className="gap-2">
             <Calendar className="h-4 w-4" />
@@ -131,7 +156,7 @@ export default function Settings() {
                     id="schoolName"
                     value={formData.schoolName}
                     onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
-                    placeholder="École Primaire XYZ"
+                    placeholder="École Fondamentale de Bamako"
                   />
                 </div>
                 <div className="space-y-2">
@@ -141,7 +166,7 @@ export default function Settings() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="contact@ecole.com"
+                    placeholder="contact@ecole.ml"
                   />
                 </div>
                 <div className="space-y-2">
@@ -150,7 +175,7 @@ export default function Settings() {
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+225 XX XX XX XX"
+                    placeholder="+223 XX XX XX XX"
                   />
                 </div>
                 <div className="space-y-2">
@@ -159,7 +184,7 @@ export default function Settings() {
                     id="website"
                     value={formData.website || ''}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    placeholder="https://www.ecole.com"
+                    placeholder="https://www.ecole.ml"
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -168,10 +193,48 @@ export default function Settings() {
                     id="address"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    placeholder="Adresse complète de l'établissement"
+                    placeholder="Quartier, Commune, Bamako, Mali"
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cycles">
+          <Card className="card-elevated">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary" />
+                Cycles d'enseignement
+              </CardTitle>
+              <CardDescription>
+                Activez les cycles correspondant à votre établissement. Seuls les cycles actifs seront affichés.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(['jardin', 'primaire', 'college', 'lycee'] as CycleType[]).map((cycle) => (
+                <div key={cycle} className="flex items-center justify-between p-4 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <span className="p-2 rounded-lg bg-primary/10 text-primary">
+                      {CYCLE_ICONS[cycle]}
+                    </span>
+                    <div>
+                      <p className="font-medium">{CYCLE_LABELS[cycle]}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {cycle === 'jardin' && 'PS, MS, GS'}
+                        {cycle === 'primaire' && '1ère à 6ème Année'}
+                        {cycle === 'college' && '7ème à 9ème Année (DEF)'}
+                        {cycle === 'lycee' && '10ème à 12ème Année (Bac)'}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={settings.activeCycles.includes(cycle)}
+                    onCheckedChange={() => handleToggleCycle(cycle)}
+                  />
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
@@ -211,15 +274,14 @@ export default function Settings() {
                   <Label>Système de notation</Label>
                   <Select
                     value={formData.gradingScale}
-                    onValueChange={(value) => setFormData({ ...formData, gradingScale: value as 'french' | 'american' | 'custom' })}
+                    onValueChange={(value) => setFormData({ ...formData, gradingScale: value as 'ten' | 'twenty' })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="french">Français (/20)</SelectItem>
-                      <SelectItem value="american">Américain (A-F)</SelectItem>
-                      <SelectItem value="custom">Personnalisé</SelectItem>
+                      <SelectItem value="ten">{GRADING_SCALE_LABELS.ten}</SelectItem>
+                      <SelectItem value="twenty">{GRADING_SCALE_LABELS.twenty}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -231,7 +293,7 @@ export default function Settings() {
                     value={formData.passingGrade}
                     onChange={(e) => setFormData({ ...formData, passingGrade: parseFloat(e.target.value) })}
                     min={0}
-                    max={20}
+                    max={formData.gradingScale === 'ten' ? 10 : 20}
                   />
                 </div>
                 <div className="space-y-2">
@@ -244,11 +306,11 @@ export default function Settings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="XOF">XOF (Franc CFA)</SelectItem>
-                      <SelectItem value="XAF">XAF (Franc CFA CEMAC)</SelectItem>
+                      <SelectItem value="XOF">XOF (Franc CFA BCEAO)</SelectItem>
+                      <SelectItem value="XAF">XAF (Franc CFA BEAC)</SelectItem>
+                      <SelectItem value="GNF">GNF (Franc Guinéen)</SelectItem>
                       <SelectItem value="EUR">EUR (Euro)</SelectItem>
                       <SelectItem value="USD">USD (Dollar)</SelectItem>
-                      <SelectItem value="GNF">GNF (Franc Guinéen)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -365,8 +427,9 @@ export default function Settings() {
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">À propos</h4>
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p><strong>EduFlow Desktop</strong> - School Management System</p>
+                  <p><strong>EduFlow Desktop</strong> - Système de Gestion Scolaire</p>
                   <p>Version 1.0.0</p>
+                  <p>Adapté au système éducatif malien</p>
                   <p>© 2024 EduFlow. Tous droits réservés.</p>
                 </div>
               </div>

@@ -29,13 +29,24 @@ import {
   BookOpen, 
   Pencil, 
   Trash2,
+  Baby,
+  School,
+  Award,
 } from 'lucide-react';
-import type { Subject } from '@/types';
-import { LEVEL_CATEGORIES } from '@/types';
+import type { Subject, CycleType } from '@/types';
+import { CYCLE_SHORT_LABELS } from '@/types';
 import { toast } from 'sonner';
 
+// Icône par cycle
+const CYCLE_ICONS: Record<CycleType, React.ReactNode> = {
+  jardin: <Baby className="h-4 w-4" />,
+  primaire: <BookOpen className="h-4 w-4" />,
+  college: <School className="h-4 w-4" />,
+  lycee: <Award className="h-4 w-4" />,
+};
+
 export default function Subjects() {
-  const { subjects, levels, addSubject, updateSubject, deleteSubject } = useStore();
+  const { subjects, levels, settings, addSubject, updateSubject, deleteSubject } = useStore();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -46,14 +57,6 @@ export default function Subjects() {
     subject.name.toLowerCase().includes(search.toLowerCase()) ||
     subject.code.toLowerCase().includes(search.toLowerCase())
   );
-
-  const getLevelNames = (levelIds: string[]) => {
-    return levelIds
-      .map((id) => levels.find((l) => l.id === id)?.name)
-      .filter(Boolean)
-      .slice(0, 3)
-      .join(', ');
-  };
 
   const handleOpenDialog = (subject?: Subject) => {
     if (subject) {
@@ -111,11 +114,14 @@ export default function Subjects() {
     }
   };
 
+  // Grouper les niveaux par cycle
   const groupedLevels = levels.reduce((acc, level) => {
-    if (!acc[level.category]) acc[level.category] = [];
-    acc[level.category].push(level);
+    if (!acc[level.cycleType]) acc[level.cycleType] = [];
+    acc[level.cycleType].push(level);
     return acc;
-  }, {} as Record<string, typeof levels>);
+  }, {} as Record<CycleType, typeof levels>);
+
+  const activeCycles = settings.activeCycles;
 
   return (
     <MainLayout>
@@ -167,7 +173,7 @@ export default function Subjects() {
                         const level = levels.find((l) => l.id === id);
                         return level ? (
                           <Badge key={id} variant="secondary" className="text-xs">
-                            {level.name}
+                            {level.shortName}
                           </Badge>
                         ) : null;
                       })}
@@ -262,25 +268,31 @@ export default function Subjects() {
             <div className="space-y-2">
               <Label>Niveaux concernés</Label>
               <div className="border rounded-lg p-4 space-y-4 max-h-60 overflow-y-auto">
-                {Object.entries(LEVEL_CATEGORIES).map(([category, label]) => {
-                  const categoryLevels = groupedLevels[category] || [];
-                  if (categoryLevels.length === 0) return null;
+                {(['jardin', 'primaire', 'college', 'lycee'] as CycleType[]).map((cycleType) => {
+                  if (!activeCycles.includes(cycleType)) return null;
+                  const cycleLevels = groupedLevels[cycleType] || [];
+                  if (cycleLevels.length === 0) return null;
                   return (
-                    <div key={category}>
-                      <p className="text-sm font-medium text-muted-foreground mb-2">{label}</p>
+                    <div key={cycleType}>
+                      <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                        {CYCLE_ICONS[cycleType]}
+                        {CYCLE_SHORT_LABELS[cycleType]}
+                      </p>
                       <div className="flex flex-wrap gap-2">
-                        {categoryLevels.map((level) => (
-                          <label
-                            key={level.id}
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={formData.levelIds?.includes(level.id) || false}
-                              onCheckedChange={() => toggleLevel(level.id)}
-                            />
-                            <span className="text-sm">{level.name}</span>
-                          </label>
-                        ))}
+                        {cycleLevels
+                          .sort((a, b) => a.order - b.order)
+                          .map((level) => (
+                            <label
+                              key={level.id}
+                              className="flex items-center gap-2 cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={formData.levelIds?.includes(level.id) || false}
+                                onCheckedChange={() => toggleLevel(level.id)}
+                              />
+                              <span className="text-sm">{level.shortName}</span>
+                            </label>
+                          ))}
                       </div>
                     </div>
                   );
