@@ -15,13 +15,17 @@ import type {
   SchoolSettings,
   AcademicYear,
   DashboardStats,
+  Cycle,
+  CycleType,
 } from '@/types';
+import { MALI_LEVELS } from '@/types';
 
 interface EduFlowState {
   // Data
   students: Student[];
   classes: Class[];
   levels: Level[];
+  cycles: Cycle[];
   teachers: Teacher[];
   subjects: Subject[];
   grades: Grade[];
@@ -52,6 +56,10 @@ interface EduFlowState {
   addLevel: (level: Omit<Level, 'id' | 'createdAt'>) => Level;
   updateLevel: (id: string, level: Partial<Level>) => void;
   deleteLevel: (id: string) => void;
+  getLevelsByCycle: (cycleType: CycleType) => Level[];
+
+  // Actions - Cycles
+  toggleCycleActive: (cycleType: CycleType) => void;
 
   // Actions - Teachers
   addTeacher: (teacher: Omit<Teacher, 'id' | 'createdAt' | 'updatedAt'>) => Teacher;
@@ -113,31 +121,34 @@ interface EduFlowState {
   resetData: () => void;
 }
 
-const generateDefaultData = (): Pick<EduFlowState, 'levels' | 'academicYears' | 'periods' | 'settings'> => {
+const generateDefaultData = (): Pick<EduFlowState, 'levels' | 'cycles' | 'academicYears' | 'periods' | 'settings'> => {
   const now = new Date().toISOString();
   const currentYear = new Date().getFullYear();
   const academicYearId = uuidv4();
   
+  // Générer les niveaux maliens
+  const levels: Level[] = MALI_LEVELS.map((level) => ({
+    ...level,
+    id: uuidv4(),
+    createdAt: now,
+  }));
+
+  // Cycles du système malien
+  const cycles: Cycle[] = [
+    { id: uuidv4(), type: 'jardin', name: 'Jardin d\'enfants / Crèche', order: 1, isActive: true, createdAt: now },
+    { id: uuidv4(), type: 'primaire', name: 'Enseignement Primaire', order: 2, isActive: true, createdAt: now },
+    { id: uuidv4(), type: 'college', name: 'Enseignement Secondaire - Collège', order: 3, isActive: true, createdAt: now },
+    { id: uuidv4(), type: 'lycee', name: 'Enseignement Secondaire - Lycée', order: 4, isActive: true, createdAt: now },
+  ];
+
   return {
-    levels: [
-      { id: uuidv4(), name: 'CP', category: 'primary', order: 1, createdAt: now },
-      { id: uuidv4(), name: 'CE1', category: 'primary', order: 2, createdAt: now },
-      { id: uuidv4(), name: 'CE2', category: 'primary', order: 3, createdAt: now },
-      { id: uuidv4(), name: 'CM1', category: 'primary', order: 4, createdAt: now },
-      { id: uuidv4(), name: 'CM2', category: 'primary', order: 5, createdAt: now },
-      { id: uuidv4(), name: '6ème', category: 'college', order: 6, createdAt: now },
-      { id: uuidv4(), name: '5ème', category: 'college', order: 7, createdAt: now },
-      { id: uuidv4(), name: '4ème', category: 'college', order: 8, createdAt: now },
-      { id: uuidv4(), name: '3ème', category: 'college', order: 9, createdAt: now },
-      { id: uuidv4(), name: '2nde', category: 'lycee', order: 10, createdAt: now },
-      { id: uuidv4(), name: '1ère', category: 'lycee', order: 11, createdAt: now },
-      { id: uuidv4(), name: 'Terminale', category: 'lycee', order: 12, createdAt: now },
-    ],
+    levels,
+    cycles,
     academicYears: [
       {
         id: academicYearId,
         name: `${currentYear}-${currentYear + 1}`,
-        startDate: `${currentYear}-09-01`,
+        startDate: `${currentYear}-10-01`,
         endDate: `${currentYear + 1}-06-30`,
         isActive: true,
         createdAt: now,
@@ -148,8 +159,8 @@ const generateDefaultData = (): Pick<EduFlowState, 'levels' | 'academicYears' | 
         id: uuidv4(),
         name: '1er Trimestre',
         type: 'trimester',
-        startDate: `${currentYear}-09-01`,
-        endDate: `${currentYear}-12-15`,
+        startDate: `${currentYear}-10-01`,
+        endDate: `${currentYear}-12-20`,
         academicYear: `${currentYear}-${currentYear + 1}`,
         order: 1,
         isActive: true,
@@ -159,7 +170,7 @@ const generateDefaultData = (): Pick<EduFlowState, 'levels' | 'academicYears' | 
         id: uuidv4(),
         name: '2ème Trimestre',
         type: 'trimester',
-        startDate: `${currentYear + 1}-01-05`,
+        startDate: `${currentYear + 1}-01-06`,
         endDate: `${currentYear + 1}-03-31`,
         academicYear: `${currentYear}-${currentYear + 1}`,
         order: 2,
@@ -181,14 +192,15 @@ const generateDefaultData = (): Pick<EduFlowState, 'levels' | 'academicYears' | 
     settings: {
       id: uuidv4(),
       schoolName: 'Mon École',
-      address: '',
+      address: 'Bamako, Mali',
       phone: '',
       email: '',
       currentAcademicYear: `${currentYear}-${currentYear + 1}`,
-      gradingScale: 'french',
+      gradingScale: 'twenty',
       passingGrade: 10,
       currency: 'XOF',
       language: 'fr',
+      activeCycles: ['jardin', 'primaire', 'college', 'lycee'],
       createdAt: now,
       updatedAt: now,
     },
@@ -204,6 +216,7 @@ export const useStore = create<EduFlowState>()(
       students: [],
       classes: [],
       levels: defaultData.levels,
+      cycles: defaultData.cycles,
       teachers: [],
       subjects: [],
       grades: [],
@@ -291,6 +304,22 @@ export const useStore = create<EduFlowState>()(
       },
       deleteLevel: (id) => {
         set((state) => ({ levels: state.levels.filter((l) => l.id !== id) }));
+      },
+      getLevelsByCycle: (cycleType) => {
+        return get().levels.filter((l) => l.cycleType === cycleType);
+      },
+
+      // Cycles
+      toggleCycleActive: (cycleType) => {
+        set((state) => {
+          const currentActive = state.settings.activeCycles;
+          const newActive = currentActive.includes(cycleType)
+            ? currentActive.filter((c) => c !== cycleType)
+            : [...currentActive, cycleType];
+          return {
+            settings: { ...state.settings, activeCycles: newActive, updatedAt: new Date().toISOString() },
+          };
+        });
       },
 
       // Teachers
@@ -507,10 +536,11 @@ export const useStore = create<EduFlowState>()(
         const totalPayments = state.payments.reduce((sum, p) => sum + p.amount, 0);
         const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
         
-        // Calculate average grade
+        // Calculate average grade based on grading scale
+        const maxGrade = state.settings.gradingScale === 'ten' ? 10 : 20;
         const allGrades = state.grades.filter((g) => g.value !== undefined);
         const averageGrade = allGrades.length > 0
-          ? allGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * 20, 0) / allGrades.length
+          ? allGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * maxGrade, 0) / allGrades.length
           : 0;
 
         return {
@@ -520,7 +550,7 @@ export const useStore = create<EduFlowState>()(
           activeStudents,
           totalPayments,
           totalExpenses,
-          pendingPayments: 0, // Will be calculated with tuition fees
+          pendingPayments: 0,
           averageGrade: Math.round(averageGrade * 100) / 100,
         };
       },
@@ -540,6 +570,7 @@ export const useStore = create<EduFlowState>()(
           students: state.students,
           classes: state.classes,
           levels: state.levels,
+          cycles: state.cycles,
           teachers: state.teachers,
           subjects: state.subjects,
           grades: state.grades,
@@ -562,6 +593,7 @@ export const useStore = create<EduFlowState>()(
             students: data.students || [],
             classes: data.classes || [],
             levels: data.levels || defaultData.levels,
+            cycles: data.cycles || defaultData.cycles,
             teachers: data.teachers || [],
             subjects: data.subjects || [],
             grades: data.grades || [],
@@ -584,6 +616,7 @@ export const useStore = create<EduFlowState>()(
           students: [],
           classes: [],
           levels: newDefaults.levels,
+          cycles: newDefaults.cycles,
           teachers: [],
           subjects: [],
           grades: [],
@@ -602,6 +635,7 @@ export const useStore = create<EduFlowState>()(
         students: state.students,
         classes: state.classes,
         levels: state.levels,
+        cycles: state.cycles,
         teachers: state.teachers,
         subjects: state.subjects,
         grades: state.grades,

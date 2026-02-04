@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { 
   Plus, 
   GraduationCap, 
@@ -29,31 +30,44 @@ import {
   Users,
   ChevronDown,
   ChevronRight,
+  Baby,
+  BookOpen,
+  School,
+  Award,
 } from 'lucide-react';
-import type { Class, Level } from '@/types';
-import { LEVEL_CATEGORIES } from '@/types';
+import type { Class, CycleType } from '@/types';
+import { CYCLE_LABELS, CYCLE_SHORT_LABELS } from '@/types';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
+// Icône par cycle
+const CYCLE_ICONS: Record<CycleType, React.ReactNode> = {
+  jardin: <Baby className="h-5 w-5" />,
+  primaire: <BookOpen className="h-5 w-5" />,
+  college: <School className="h-5 w-5" />,
+  lycee: <Award className="h-5 w-5" />,
+};
+
 export default function Classes() {
-  const { classes, levels, students, addClass, updateClass, deleteClass, addLevel } = useStore();
+  const { classes, levels, students, settings, addClass, updateClass, deleteClass } = useStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [formData, setFormData] = useState<Partial<Class>>({});
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['primary', 'college', 'lycee', 'university']);
+  const [expandedCycles, setExpandedCycles] = useState<CycleType[]>(settings.activeCycles);
 
-  const toggleCategory = (category: string) => {
-    setExpandedCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+  const toggleCycle = (cycle: CycleType) => {
+    setExpandedCycles((prev) =>
+      prev.includes(cycle) ? prev.filter((c) => c !== cycle) : [...prev, cycle]
     );
   };
 
+  // Grouper les niveaux par cycle
   const groupedLevels = levels.reduce((acc, level) => {
-    if (!acc[level.category]) acc[level.category] = [];
-    acc[level.category].push(level);
+    if (!acc[level.cycleType]) acc[level.cycleType] = [];
+    acc[level.cycleType].push(level);
     return acc;
-  }, {} as Record<string, Level[]>);
+  }, {} as Record<CycleType, typeof levels>);
 
   const getClassesByLevel = (levelId: string) => classes.filter((c) => c.levelId === levelId);
   const getStudentCount = (classId: string) => students.filter((s) => s.classId === classId).length;
@@ -67,8 +81,8 @@ export default function Classes() {
       setFormData({
         name: '',
         levelId: '',
-        capacity: 30,
-        academicYear: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
+        capacity: 50,
+        academicYear: settings.currentAcademicYear,
       });
     }
     setIsDialogOpen(true);
@@ -110,9 +124,12 @@ export default function Classes() {
     setIsDeleteOpen(true);
   };
 
+  // Filtrer les cycles actifs
+  const activeCycles = settings.activeCycles;
+
   return (
     <MainLayout>
-      <PageHeader title="Classes & Niveaux" description="Organisation des classes par niveau">
+      <PageHeader title="Classes & Niveaux" description="Organisation par cycle du système éducatif malien">
         <Button onClick={() => handleOpenDialog()} className="gradient-primary">
           <Plus className="h-4 w-4 mr-2" />
           Nouvelle classe
@@ -120,40 +137,54 @@ export default function Classes() {
       </PageHeader>
 
       <div className="space-y-4">
-        {Object.entries(LEVEL_CATEGORIES).map(([categoryKey, categoryLabel]) => {
-          const categoryLevels = groupedLevels[categoryKey] || [];
-          if (categoryLevels.length === 0) return null;
+        {(['jardin', 'primaire', 'college', 'lycee'] as CycleType[]).map((cycleType) => {
+          // Ne pas afficher les cycles inactifs
+          if (!activeCycles.includes(cycleType)) return null;
 
-          const isExpanded = expandedCategories.includes(categoryKey);
+          const cycleLevels = groupedLevels[cycleType] || [];
+          if (cycleLevels.length === 0) return null;
+
+          const isExpanded = expandedCycles.includes(cycleType);
+          const totalClasses = cycleLevels.reduce((acc, l) => acc + getClassesByLevel(l.id).length, 0);
 
           return (
-            <Collapsible key={categoryKey} open={isExpanded} onOpenChange={() => toggleCategory(categoryKey)}>
+            <Collapsible key={cycleType} open={isExpanded} onOpenChange={() => toggleCycle(cycleType)}>
               <Card className="card-elevated overflow-hidden">
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <CardTitle className="text-lg font-semibold flex items-center gap-3">
                         {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                        {categoryLabel}
+                        <span className="p-2 rounded-lg bg-primary/10 text-primary">
+                          {CYCLE_ICONS[cycleType]}
+                        </span>
+                        {CYCLE_LABELS[cycleType]}
                       </CardTitle>
-                      <span className="text-sm text-muted-foreground">
-                        {categoryLevels.reduce((acc, l) => acc + getClassesByLevel(l.id).length, 0)} classes
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{totalClasses} classes</Badge>
+                      </div>
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="pt-0">
                     <div className="space-y-4">
-                      {categoryLevels
+                      {cycleLevels
                         .sort((a, b) => a.order - b.order)
                         .map((level) => {
                           const levelClasses = getClassesByLevel(level.id);
                           return (
                             <div key={level.id} className="space-y-2">
-                              <h4 className="text-sm font-medium text-muted-foreground px-2">
-                                {level.name}
-                              </h4>
+                              <div className="flex items-center gap-2 px-2">
+                                <h4 className="text-sm font-medium text-muted-foreground">
+                                  {level.name}
+                                </h4>
+                                {level.isExamYear && (
+                                  <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
+                                    {level.examName}
+                                  </Badge>
+                                )}
+                              </div>
                               {levelClasses.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                   {levelClasses.map((cls) => {
@@ -166,7 +197,7 @@ export default function Classes() {
                                       >
                                         <div className="flex items-start justify-between mb-3">
                                           <div className="flex items-center gap-2">
-                                            <div className="p-2 rounded-lg bg-primary-light">
+                                            <div className="p-2 rounded-lg bg-primary/10">
                                               <GraduationCap className="h-4 w-4 text-primary" />
                                             </div>
                                             <span className="font-semibold">{cls.name}</span>
@@ -219,6 +250,14 @@ export default function Classes() {
             </Collapsible>
           );
         })}
+
+        {activeCycles.length === 0 && (
+          <EmptyState
+            icon={<GraduationCap className="h-12 w-12" />}
+            title="Aucun cycle actif"
+            description="Activez au moins un cycle dans les paramètres pour gérer vos classes."
+          />
+        )}
       </div>
 
       {/* Add/Edit Dialog */}
@@ -242,7 +281,7 @@ export default function Classes() {
                 id="name"
                 value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: 6ème A, CM2-B..."
+                placeholder="Ex: 1ère Année A, 9ème B..."
               />
             </div>
             <div className="space-y-2">
@@ -255,19 +294,23 @@ export default function Classes() {
                   <SelectValue placeholder="Sélectionner un niveau" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(LEVEL_CATEGORIES).map(([category, label]) => {
-                    const categoryLevels = groupedLevels[category] || [];
-                    if (categoryLevels.length === 0) return null;
+                  {(['jardin', 'primaire', 'college', 'lycee'] as CycleType[]).map((cycleType) => {
+                    if (!activeCycles.includes(cycleType)) return null;
+                    const cycleLevels = groupedLevels[cycleType] || [];
+                    if (cycleLevels.length === 0) return null;
                     return (
-                      <div key={category}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                          {label}
+                      <div key={cycleType}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                          {CYCLE_ICONS[cycleType]}
+                          {CYCLE_SHORT_LABELS[cycleType]}
                         </div>
-                        {categoryLevels.map((level) => (
-                          <SelectItem key={level.id} value={level.id}>
-                            {level.name}
-                          </SelectItem>
-                        ))}
+                        {cycleLevels
+                          .sort((a, b) => a.order - b.order)
+                          .map((level) => (
+                            <SelectItem key={level.id} value={level.id}>
+                              {level.name}
+                            </SelectItem>
+                          ))}
                       </div>
                     );
                   })}
@@ -275,12 +318,12 @@ export default function Classes() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="capacity">Capacité</Label>
+              <Label htmlFor="capacity">Capacité (élèves)</Label>
               <Input
                 id="capacity"
                 type="number"
-                value={formData.capacity || 30}
-                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 30 })}
+                value={formData.capacity || 50}
+                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 50 })}
                 min={1}
                 max={100}
               />
