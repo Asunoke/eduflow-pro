@@ -1,48 +1,32 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { MainLayout } from '@/components/layout';
 import { PageHeader, SearchInput, StatusBadge, EmptyState, ConfirmDialog } from '@/components/shared';
+import { PhotoUpload } from '@/components/shared/PhotoUpload';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Plus, 
-  Users, 
-  Pencil, 
-  Trash2, 
-  Eye,
-  Download,
-} from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Plus, Users, Pencil, Trash2, Eye } from 'lucide-react';
 import type { Student } from '@/types';
 import { STUDENT_STATUS } from '@/types';
 import { toast } from 'sonner';
 
 export default function Students() {
-  const { students, classes, levels, addStudent, updateStudent, deleteStudent } = useStore();
+  const { students, classes, levels, addStudent, updateStudent, deleteStudent, generateMatricule } = useStore();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filterClass, setFilterClass] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -50,9 +34,11 @@ export default function Students() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [formData, setFormData] = useState<Partial<Student>>({});
+  const [matriculeMode, setMatriculeMode] = useState<'auto' | 'manual'>('auto');
+  const [manualMatricule, setManualMatricule] = useState('');
 
   const filteredStudents = students.filter((student) => {
-    const matchSearch = 
+    const matchSearch =
       student.firstName.toLowerCase().includes(search.toLowerCase()) ||
       student.lastName.toLowerCase().includes(search.toLowerCase()) ||
       student.matricule.toLowerCase().includes(search.toLowerCase());
@@ -72,6 +58,8 @@ export default function Students() {
     if (student) {
       setSelectedStudent(student);
       setFormData(student);
+      setMatriculeMode('auto');
+      setManualMatricule('');
     } else {
       setSelectedStudent(null);
       setFormData({
@@ -84,7 +72,10 @@ export default function Students() {
         parentName: '',
         parentPhone: '',
         enrollmentDate: new Date().toISOString().split('T')[0],
+        photo: undefined,
       });
+      setMatriculeMode('auto');
+      setManualMatricule('');
     }
     setIsDialogOpen(true);
   };
@@ -95,11 +86,26 @@ export default function Students() {
       return;
     }
 
+    if (!selectedStudent && matriculeMode === 'manual') {
+      if (!manualMatricule.trim()) {
+        toast.error('Veuillez saisir un matricule');
+        return;
+      }
+      const exists = students.some((s) => s.matricule === manualMatricule.trim());
+      if (exists) {
+        toast.error('Ce matricule existe déjà');
+        return;
+      }
+    }
+
     if (selectedStudent) {
       updateStudent(selectedStudent.id, formData);
       toast.success('Élève modifié avec succès');
     } else {
-      addStudent(formData as Omit<Student, 'id' | 'matricule' | 'createdAt' | 'updatedAt'>);
+      const newStudent = addStudent(formData as Omit<Student, 'id' | 'matricule' | 'createdAt' | 'updatedAt'>);
+      if (matriculeMode === 'manual' && manualMatricule.trim()) {
+        updateStudent(newStudent.id, { matricule: manualMatricule.trim() });
+      }
       toast.success('Élève ajouté avec succès');
     }
     setIsDialogOpen(false);
@@ -145,9 +151,7 @@ export default function Students() {
               <SelectContent>
                 <SelectItem value="all">Toutes les classes</SelectItem>
                 {classes.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {cls.name}
-                  </SelectItem>
+                  <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -158,9 +162,7 @@ export default function Students() {
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
                 {Object.entries(STUDENT_STATUS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -174,45 +176,48 @@ export default function Students() {
           <Table>
             <TableHeader className="table-header">
               <TableRow>
+                <TableHead>Élève</TableHead>
                 <TableHead>Matricule</TableHead>
-                <TableHead>Nom complet</TableHead>
                 <TableHead>Classe</TableHead>
                 <TableHead>Parent</TableHead>
-                <TableHead>Téléphone</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.map((student) => (
-                <TableRow key={student.id} className="table-row-hover">
-                  <TableCell className="font-mono text-sm">{student.matricule}</TableCell>
-                  <TableCell className="font-medium">
-                    {student.lastName} {student.firstName}
-                  </TableCell>
-                  <TableCell>{getClassName(student.classId)}</TableCell>
-                  <TableCell>{student.parentName}</TableCell>
-                  <TableCell>{student.parentPhone}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={student.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(student)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => confirmDelete(student)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredStudents.map((student) => {
+                const initials = `${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase();
+                return (
+                  <TableRow key={student.id} className="table-row-hover">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={student.photo} className="object-cover" />
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{student.lastName} {student.firstName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{student.matricule}</TableCell>
+                    <TableCell>{getClassName(student.classId)}</TableCell>
+                    <TableCell>{student.parentName}</TableCell>
+                    <TableCell><StatusBadge status={student.status} /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/students/${student.id}`)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(student)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => confirmDelete(student)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         ) : (
@@ -220,12 +225,7 @@ export default function Students() {
             icon={<Users className="h-12 w-12" />}
             title="Aucun élève"
             description="Commencez par ajouter votre premier élève."
-            action={
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter un élève
-              </Button>
-            }
+            action={<Button onClick={() => handleOpenDialog()}><Plus className="h-4 w-4 mr-2" />Ajouter un élève</Button>}
           />
         )}
       </Card>
@@ -234,53 +234,64 @@ export default function Students() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedStudent ? 'Modifier l\'élève' : 'Nouvel élève'}
-            </DialogTitle>
+            <DialogTitle>{selectedStudent ? 'Modifier l\'élève' : 'Nouvel élève'}</DialogTitle>
             <DialogDescription>
-              {selectedStudent 
-                ? 'Modifiez les informations de l\'élève' 
-                : 'Remplissez les informations du nouvel élève'}
+              {selectedStudent ? 'Modifiez les informations de l\'élève' : 'Remplissez les informations du nouvel élève'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+          {/* Photo */}
+          <div className="flex justify-center py-2">
+            <PhotoUpload
+              photo={formData.photo}
+              onPhotoChange={(photo) => setFormData({ ...formData, photo })}
+              fallback={`${(formData.firstName || '')[0] || ''}${(formData.lastName || '')[0] || ''}`}
+              size="lg"
+            />
+          </div>
+
+          {/* Matricule choice (only for new students) */}
+          {!selectedStudent && (
+            <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+              <Label className="text-sm font-medium">Matricule</Label>
+              <RadioGroup value={matriculeMode} onValueChange={(v) => setMatriculeMode(v as 'auto' | 'manual')} className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="auto" id="mat-auto" />
+                  <Label htmlFor="mat-auto" className="font-normal cursor-pointer">Générer automatiquement</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="manual" id="mat-manual" />
+                  <Label htmlFor="mat-manual" className="font-normal cursor-pointer">Saisir manuellement</Label>
+                </div>
+              </RadioGroup>
+              {matriculeMode === 'manual' && (
+                <Input
+                  value={manualMatricule}
+                  onChange={(e) => setManualMatricule(e.target.value)}
+                  placeholder="Ex: EDU-2025-001"
+                  className="mt-2"
+                />
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="lastName">Nom *</Label>
-              <Input
-                id="lastName"
-                value={formData.lastName || ''}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                placeholder="Nom de famille"
-              />
+              <Input id="lastName" value={formData.lastName || ''} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Nom de famille" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="firstName">Prénom *</Label>
-              <Input
-                id="firstName"
-                value={formData.firstName || ''}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                placeholder="Prénom"
-              />
+              <Input id="firstName" value={formData.firstName || ''} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Prénom" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="dateOfBirth">Date de naissance</Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                value={formData.dateOfBirth || ''}
-                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-              />
+              <Input id="dateOfBirth" type="date" value={formData.dateOfBirth || ''} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="gender">Genre</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value) => setFormData({ ...formData, gender: value as 'M' | 'F' })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
+              <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value as 'M' | 'F' })}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="M">Masculin</SelectItem>
                   <SelectItem value="F">Féminin</SelectItem>
@@ -289,89 +300,53 @@ export default function Students() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="classId">Classe *</Label>
-              <Select
-                value={formData.classId}
-                onValueChange={(value) => setFormData({ ...formData, classId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une classe" />
-                </SelectTrigger>
+              <Select value={formData.classId} onValueChange={(value) => setFormData({ ...formData, classId: value })}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner une classe" /></SelectTrigger>
                 <SelectContent>
                   {classes.map((cls) => {
                     const level = levels.find((l) => l.id === cls.levelId);
-                    return (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name} ({level?.name})
-                      </SelectItem>
-                    );
+                    return <SelectItem key={cls.id} value={cls.id}>{cls.name} ({level?.name})</SelectItem>;
                   })}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Statut</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value as Student['status'] })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as Student['status'] })}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(STUDENT_STATUS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="parentName">Nom du parent *</Label>
-              <Input
-                id="parentName"
-                value={formData.parentName || ''}
-                onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
-                placeholder="Nom complet du parent"
-              />
+              <Input id="parentName" value={formData.parentName || ''} onChange={(e) => setFormData({ ...formData, parentName: e.target.value })} placeholder="Nom complet du parent" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="parentPhone">Téléphone parent *</Label>
-              <Input
-                id="parentPhone"
-                value={formData.parentPhone || ''}
-                onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
-                placeholder="+225 XX XX XX XX"
-              />
+              <Input id="parentPhone" value={formData.parentPhone || ''} onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="+223 XX XX XX XX" />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="address">Adresse</Label>
-              <Input
-                id="address"
-                value={formData.address || ''}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Adresse complète"
-              />
+              <Input id="address" value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Adresse complète" />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleSave} className="gradient-primary">
-              {selectedStudent ? 'Enregistrer' : 'Ajouter'}
-            </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleSave} className="gradient-primary">{selectedStudent ? 'Enregistrer' : 'Ajouter'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <ConfirmDialog
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         title="Supprimer l'élève"
-        description={`Êtes-vous sûr de vouloir supprimer ${selectedStudent?.firstName} ${selectedStudent?.lastName} ? Cette action est irréversible et supprimera également toutes ses notes et paiements.`}
+        description={`Êtes-vous sûr de vouloir supprimer ${selectedStudent?.firstName} ${selectedStudent?.lastName} ? Cette action est irréversible.`}
         confirmLabel="Supprimer"
         variant="destructive"
         onConfirm={handleDelete}
