@@ -577,6 +577,55 @@ export default function Settings() {
                   </Select>
                 </div>
               </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Mensualités par classe</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Définissez le montant mensuel de la scolarité pour chaque classe afin de calculer les revenus prévisionnels.
+                </p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {useStore().classes.map((cls) => {
+                    const [tempVal, setTempVal] = useState(cls.monthlyFee?.toString() || '0');
+                    return (
+                      <div key={cls.id} className="p-3 rounded-xl border bg-card flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <Label className="font-bold">{cls.name}</Label>
+                          <Badge variant="outline" className="text-[10px]">
+                            {useStore().levels.find(l => l.id === cls.levelId)?.name}
+                          </Badge>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            step="any"
+                            value={tempVal}
+                            onChange={(e) => setTempVal(e.target.value)}
+                            onBlur={() => {
+                              const v = parseFloat(tempVal);
+                              if (!isNaN(v)) useStore().updateClass(cls.id, { monthlyFee: v });
+                            }}
+                            className="pr-12 font-mono"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold">
+                            {formData.currency}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {useStore().classes.length === 0 && (
+                    <p className="text-sm italic text-muted-foreground col-span-full py-4 text-center">
+                      Aucune classe configurée. Créez des classes pour définir les mensualités.
+                    </p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

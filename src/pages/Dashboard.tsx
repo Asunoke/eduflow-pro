@@ -13,6 +13,7 @@ import {
   BookOpen,
   ArrowRight,
   MoreVertical,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,6 +87,37 @@ export default function Dashboard() {
   const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: settings.currency || 'XOF', maximumFractionDigits: 0 }).format(amount);
 
+  const dashboardStats = [
+    {
+      title: "Élèves Actifs",
+      value: stats.activeStudents.toString(),
+      description: "Inscrits cette année",
+      icon: Users,
+      variant: "orange",
+    },
+    {
+      title: "Revenus (Paiements)",
+      value: formatCurrency(stats.totalPayments),
+      description: "Total encaissé",
+      icon: TrendingUp,
+      variant: "blue",
+    },
+    {
+      title: "Reste à percevoir",
+      value: formatCurrency(stats.pendingPayments),
+      description: "Basé sur les mensualités",
+      icon: Clock,
+      variant: stats.pendingPayments > 1000000 ? "blue" : "purple"
+    },
+    {
+      title: "Dépenses (Salaires)",
+      value: formatCurrency(stats.totalExpenses),
+      description: "Charges et salaires",
+      icon: TrendingDown,
+      variant: "orange",
+    },
+  ];
+
   return (
     <MainLayout>
       <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
@@ -96,30 +128,15 @@ export default function Dashboard() {
 
         {/* Top Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatsCard
-            title="Élèves"
-            value={stats.totalStudents}
-            icon={Users}
-            variant="orange"
-          />
-          <StatsCard
-            title="Professeurs"
-            value={stats.totalTeachers}
-            icon={School}
-            variant="purple"
-          />
-          <StatsCard
-            title="Classes"
-            value={stats.totalClasses}
-            icon={GraduationCap}
-            variant="cyan"
-          />
-          <StatsCard
-            title="Revenus Total"
-            value={formatCurrency(stats.totalPayments)}
-            icon={Wallet}
-            variant="blue"
-          />
+          {dashboardStats.map((stat, i) => (
+            <StatsCard
+              key={i}
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon as any}
+              variant={stat.variant as any}
+            />
+          ))}
         </div>
 
         {/* Main Content Grid */}

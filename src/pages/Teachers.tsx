@@ -15,12 +15,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Plus, School, Pencil, Trash2, Mail, Phone } from 'lucide-react';
+import { Plus, School, Pencil, Trash2, Mail, Phone, Eye } from 'lucide-react';
 import type { Teacher } from '@/types';
 import { toast } from 'sonner';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Teachers() {
-  const { teachers, subjects, addTeacher, updateTeacher, deleteTeacher } = useStore();
+  const navigate = useNavigate();
+  const { teachers, subjects, addTeacher, updateTeacher, deleteTeacher, settings } = useStore();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -43,7 +45,7 @@ export default function Teachers() {
       setSelectedTeacher(null);
       setFormData({
         firstName: '', lastName: '', email: '', phone: '',
-        specialization: '', subjectIds: [], status: 'active',
+        specialization: '', subjectIds: [], salary: 0, status: 'active',
         hireDate: new Date().toISOString().split('T')[0],
         photo: undefined,
       });
@@ -103,7 +105,7 @@ export default function Teachers() {
                 <TableHead>Professeur</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Spécialisation</TableHead>
-                <TableHead>Matières</TableHead>
+                <TableHead className="text-right">Salaire</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -114,33 +116,29 @@ export default function Teachers() {
                 return (
                   <TableRow key={teacher.id} className="table-row-hover">
                     <TableCell>
-                      <div className="flex items-center gap-3">
+                      <Link to={`/teachers/${teacher.id}`} className="flex items-center gap-3 group">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={teacher.photo} className="object-cover" />
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">{initials}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{teacher.lastName} {teacher.firstName}</span>
-                      </div>
+                        <span className="font-medium group-hover:text-primary transition-colors">
+                          {teacher.lastName} {teacher.firstName}
+                        </span>
+                      </Link>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Mail className="h-3.5 w-3.5" />{teacher.email}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Mail className="h-3 w-3" />{teacher.email}
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5" />{teacher.phone}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />{teacher.phone}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>{teacher.specialization || '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {teacher.subjectIds.slice(0, 2).map((id) => {
-                          const subject = subjects.find((s) => s.id === id);
-                          return subject ? <Badge key={id} variant="secondary" className="text-xs">{subject.name}</Badge> : null;
-                        })}
-                        {teacher.subjectIds.length > 2 && <Badge variant="outline" className="text-xs">+{teacher.subjectIds.length - 2}</Badge>}
-                      </div>
+                    <TableCell className="text-right font-mono font-bold text-primary">
+                      {(teacher.salary || 0).toLocaleString()} {settings.currency}
                     </TableCell>
                     <TableCell>
                       <span className={teacher.status === 'active' ? 'badge-success' : 'badge-muted'}>
@@ -149,6 +147,7 @@ export default function Teachers() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/teachers/${teacher.id}`)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(teacher)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => confirmDelete(teacher)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
@@ -205,9 +204,13 @@ export default function Teachers() {
               <Label htmlFor="phone">Téléphone</Label>
               <Input id="phone" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+223 XX XX XX XX" />
             </div>
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2">
               <Label htmlFor="specialization">Spécialisation</Label>
               <Input id="specialization" value={formData.specialization || ''} onChange={(e) => setFormData({ ...formData, specialization: e.target.value })} placeholder="Ex: Mathématiques, Physique-Chimie..." />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="salary">Salaire Mensuel ({settings.currency})</Label>
+              <Input id="salary" type="number" value={formData.salary || 0} onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) })} />
             </div>
           </div>
 

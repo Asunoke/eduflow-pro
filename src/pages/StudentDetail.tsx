@@ -1,12 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { MainLayout } from '@/components/layout';
-import { PageHeader } from '@/components/shared';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -17,13 +14,19 @@ import {
   User, 
   Users,
   Pencil,
+  FileText,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 import { STUDENT_STATUS } from '@/types';
+import { ProfileLayout } from '@/components/profile/ProfileLayout';
 
 export default function StudentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { students, classes, levels, cycles, grades, payments, subjects, periods } = useStore();
+  const { students, classes, levels, cycles, grades, payments, subjects, periods, settings } = useStore();
 
   const student = students.find((s) => s.id === id);
   if (!student) {
@@ -44,158 +47,201 @@ export default function StudentDetail() {
   const cycle = level ? cycles.find((c) => c.type === level.cycleType) : null;
   const studentGrades = grades.filter((g) => g.studentId === student.id);
   const studentPayments = payments.filter((p) => p.studentId === student.id);
-  const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
-
+  
+  // Calcul Scolarité
+  const enrollmentDate = new Date(student.enrollmentDate);
+  const now = new Date();
+  const monthsEnrolled = Math.max(1, (now.getFullYear() - enrollmentDate.getFullYear()) * 12 + (now.getMonth() - enrollmentDate.getMonth()) + 1);
+  const totalDue = (studentClass?.monthlyFee || 0) * monthsEnrolled;
   const totalPaid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
+  const balance = totalDue - totalPaid;
+
   const avgGrade = studentGrades.length > 0
     ? (studentGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * 20, 0) / studentGrades.length).toFixed(2)
     : '-';
 
   const statusLabel = STUDENT_STATUS[student.status];
-  const statusClass = student.status === 'active' ? 'badge-success' : 'badge-muted';
+  const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
+
+  const infoGroups = [
+    {
+      title: "Profil Utilisateur",
+      items: [
+        { label: "Genre", value: student.gender === 'M' ? 'Masculin' : 'Féminin' },
+        { label: "Date de naissance", value: student.dateOfBirth || '-' },
+        { label: "N° Matricule", value: <span className="font-mono text-primary">{student.matricule}</span> },
+        { label: "Statut", value: <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>{statusLabel}</Badge> },
+      ]
+    },
+    {
+      title: "Informations Académiques",
+      items: [
+        { label: "Classe", value: studentClass?.name || '-' },
+        { label: "Niveau", value: level?.name || '-' },
+        { label: "Cycle", value: cycle?.name || '-' },
+        { label: "Moyenne Générale", value: <span className="text-primary font-bold">{avgGrade}/20</span> },
+      ]
+    },
+    {
+      title: "Parent / Tuteur",
+      items: [
+        { label: "Nom complet", value: student.parentName || '-' },
+        { label: "Téléphone", value: student.parentPhone || '-' },
+        { label: "Email", value: student.parentEmail || '-' },
+        { label: "Adresse", value: student.address || '-' },
+      ]
+    },
+    {
+      title: "État des Paiements",
+      items: [
+        { label: "Scolarité Mensuelle", value: `${(studentClass?.monthlyFee || 0).toLocaleString()} ${settings.currency}` },
+        { label: "Total Dû (Cumul)", value: `${totalDue.toLocaleString()} ${settings.currency}` },
+        { label: "Total Réglé", value: <span className="text-success font-bold">{totalPaid.toLocaleString()} {settings.currency}</span> },
+        { label: "Reste à payer", value: (
+          <span className={balance > 0 ? "text-destructive font-bold animate-pulse" : "text-success font-bold"}>
+            {balance.toLocaleString()} {settings.currency}
+            {balance > 0 ? <AlertTriangle className="h-3 w-3 inline ml-1" /> : <CheckCircle2 className="h-3 w-3 inline ml-1" />}
+          </span>
+        )},
+      ]
+    }
+  ];
+
+  const tabs = [
+    {
+      value: "grades",
+      label: "Notes Académiques",
+      content: (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Historique des évaluations
+            </h3>
+            <Button variant="outline" size="sm">Exporter relevé</Button>
+          </div>
+          <div className="rounded-xl border shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
+                <TableRow>
+                  <TableHead>Matière</TableHead>
+                  <TableHead>Période</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-center">Note</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studentGrades.length > 0 ? (
+                  [...studentGrades].reverse().map((grade) => {
+                    const subject = subjects.find((s) => s.id === grade.subjectId);
+                    const period = periods.find((p) => p.id === grade.periodId);
+                    return (
+                      <TableRow key={grade.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                        <TableCell className="font-medium">{subject?.name}</TableCell>
+                        <TableCell>{period?.name}</TableCell>
+                        <TableCell className="capitalize text-xs">{grade.type}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={grade.value >= 10 ? 'default' : 'destructive'} className="font-mono">
+                            {grade.value}/{grade.maxValue}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{grade.date}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                      Aucune note enregistrée pour cet élève.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )
+    },
+    {
+      value: "payments",
+      label: "Suivi Financier",
+      content: (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Historique des versements
+            </h3>
+            <Button variant="outline" size="sm" className="bg-success/10 text-success border-success/20 hover:bg-success/20">
+              Effectuer un paiement
+            </Button>
+          </div>
+          <div className="rounded-xl border shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Méthode</TableHead>
+                  <TableHead className="text-right">Montant</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studentPayments.length > 0 ? (
+                  [...studentPayments].reverse().map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell className="font-medium">{payment.description || 'Paiement Scolarité'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{payment.date}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {payment.method.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-success">
+                        +{payment.amount.toLocaleString()} {settings.currency}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                      Aucun paiement enregistré.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )
+    }
+  ];
 
   return (
     <MainLayout>
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate('/students')} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux élèves
+      <div className="flex justify-between items-center mb-8">
+        <Button variant="ghost" onClick={() => navigate('/students')} className="hover:bg-primary/10 text-primary font-bold">
+          <ArrowLeft className="h-5 w-5 mr-2" />
+          Retour au listing
         </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/students?edit=${student.id}`)}>
+            <Pencil className="h-4 w-4 mr-2" /> Modifier le profil
+          </Button>
+          <Button className="gradient-primary">
+            <FileText className="h-4 w-4 mr-2" /> Générer Bulletin
+          </Button>
+        </div>
       </div>
 
-      {/* Profile Header */}
-      <Card className="card-elevated mb-6">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-start gap-6">
-            <Avatar className="h-28 w-28 border-4 border-primary/20">
-              <AvatarImage src={student.photo} alt={`${student.firstName} ${student.lastName}`} className="object-cover" />
-              <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold">{student.lastName} {student.firstName}</h1>
-                <span className={statusClass}>{statusLabel}</span>
-              </div>
-              <p className="text-muted-foreground font-mono text-sm">{student.matricule}</p>
-              <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
-                {studentClass && (
-                  <div className="flex items-center gap-1.5">
-                    <GraduationCap className="h-4 w-4" />
-                    {studentClass.name} {level && `• ${level.name}`}
-                  </div>
-                )}
-                {cycle && (
-                  <Badge variant="secondary">{cycle.name}</Badge>
-                )}
-              </div>
-            </div>
-            <Button variant="outline" onClick={() => navigate('/students')}>
-              <Pencil className="h-4 w-4 mr-2" /> Modifier
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Informations personnelles</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>Né(e) le {student.dateOfBirth || '-'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span>{student.gender === 'M' ? 'Masculin' : 'Féminin'}</span>
-            </div>
-            {student.address && (
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{student.address}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>Inscrit le {student.enrollmentDate}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Parent / Tuteur</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span>{student.parentName || '-'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span>{student.parentPhone || '-'}</span>
-            </div>
-            {student.parentEmail && (
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{student.parentEmail}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Résumé académique</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Nombre de notes</span>
-              <span className="font-medium">{studentGrades.length}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Moyenne générale</span>
-              <span className="font-medium">{avgGrade}/20</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total payé</span>
-              <span className="font-medium">{totalPaid.toLocaleString()} XOF</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Grades */}
-      {studentGrades.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Dernières notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {studentGrades.slice(-5).reverse().map((grade) => {
-                const subject = subjects.find((s) => s.id === grade.subjectId);
-                const period = periods.find((p) => p.id === grade.periodId);
-                return (
-                  <div key={grade.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                    <div>
-                      <p className="font-medium text-sm">{subject?.name || '-'}</p>
-                      <p className="text-xs text-muted-foreground">{period?.name} • {grade.date}</p>
-                    </div>
-                    <Badge variant={grade.value >= (grade.maxValue / 2) ? 'default' : 'destructive'}>
-                      {grade.value}/{grade.maxValue}
-                    </Badge>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <ProfileLayout 
+        initials={initials}
+        name={`${student.lastName} ${student.firstName}`}
+        photo={student.photo}
+        infoGroups={infoGroups}
+        tabs={tabs}
+      />
     </MainLayout>
   );
 }
