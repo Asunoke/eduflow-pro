@@ -321,16 +321,10 @@ export default function Settings() {
 
   const handleExport = () => {
     const data = exportData();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `eduflow-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Sauvegarde téléchargée');
+    import('@/lib/exportUtils').then(({ downloadJSON }) => {
+      downloadJSON(JSON.parse(data), `eduflow-backup-${new Date().toISOString().split('T')[0]}`);
+      toast.success('Sauvegarde téléchargée avec succès');
+    });
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {

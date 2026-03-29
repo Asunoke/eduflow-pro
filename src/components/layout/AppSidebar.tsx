@@ -28,7 +28,6 @@ const navigation = [
   { name: 'Notes & Bulletins', href: '/grades', icon: ClipboardList },
   { name: 'Finances', href: '/finances', icon: Wallet },
   { name: 'Rapports', href: '/reports', icon: FileText },
-  { name: 'Paramètres', href: '/settings', icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -38,32 +37,27 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col',
+        'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-[#1a1823] border-r border-slate-100 dark:border-slate-800 transition-all duration-300 flex flex-col',
         sidebarCollapsed ? 'w-16' : 'w-64'
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
+      <div className="flex items-center justify-between h-16 px-4">
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+              <GraduationCap className="w-5 h-5 text-white" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-sidebar-primary-foreground text-sm">
-                EduFlow
-              </span>
-              <span className="text-[10px] text-sidebar-muted truncate max-w-[120px]">
-                {settings.schoolName || 'School Management'}
-              </span>
-            </div>
+            <span className="font-bold text-slate-800 dark:text-white tracking-tight">
+              EduFlow
+            </span>
           </div>
         )}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
+          className="text-slate-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 shrink-0"
         >
           {sidebarCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
         </Button>
@@ -80,13 +74,18 @@ export function AppSidebar() {
               key={item.name}
               to={item.href}
               className={cn(
-                'nav-item',
-                isActive && 'nav-item-active',
+                'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200',
+                isActive
+                  ? 'bg-primary/10 text-primary dark:bg-primary/20'
+                  : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-white',
                 sidebarCollapsed && 'justify-center px-2'
               )}
             >
-              <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-sidebar-primary-foreground')} />
+              <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-primary' : 'text-slate-400')} />
               {!sidebarCollapsed && <span>{item.name}</span>}
+              {isActive && !sidebarCollapsed && (
+                <div className="ml-auto w-1 h-5 rounded-full bg-primary" />
+              )}
             </NavLink>
           );
 
@@ -94,7 +93,7 @@ export function AppSidebar() {
             return (
               <Tooltip key={item.name} delayDuration={0}>
                 <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                <TooltipContent side="right" className="font-medium">
+                <TooltipContent side="right" className="font-medium bg-slate-900 text-white border-none">
                   {item.name}
                 </TooltipContent>
               </Tooltip>
@@ -105,29 +104,30 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size={sidebarCollapsed ? 'icon' : 'default'}
-              onClick={toggleDarkMode}
-              className={cn(
-                'text-sidebar-foreground hover:bg-sidebar-accent w-full',
-                sidebarCollapsed ? 'justify-center' : 'justify-start gap-3'
-              )}
-            >
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {!sidebarCollapsed && <span>{darkMode ? 'Mode clair' : 'Mode sombre'}</span>}
-            </Button>
-          </TooltipTrigger>
-          {sidebarCollapsed && (
-            <TooltipContent side="right">
-              {darkMode ? 'Mode clair' : 'Mode sombre'}
-            </TooltipContent>
+      {/* Footer Settings */}
+      <div className="p-3 border-t border-slate-50 dark:border-slate-800 space-y-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleDarkMode}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all justify-start',
+            sidebarCollapsed && 'justify-center px-0'
           )}
-        </Tooltip>
+        >
+          {darkMode ? <Sun className="h-5 w-5 text-yellow-500" /> : <Moon className="h-5 w-5 text-slate-400" />}
+          {!sidebarCollapsed && <span>{darkMode ? 'Mode Clair' : 'Mode Sombre'}</span>}
+        </Button>
+        <NavLink
+          to="/settings"
+          className={cn(
+            'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all',
+            sidebarCollapsed && 'justify-center px-2'
+          )}
+        >
+          <Settings className="h-5 w-5 text-slate-400" />
+          {!sidebarCollapsed && <span>Paramètres</span>}
+        </NavLink>
       </div>
     </aside>
   );

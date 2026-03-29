@@ -47,6 +47,7 @@ export interface Class {
   name: string;
   levelId: string;
   capacity: number;
+  monthlyFee?: number;
   academicYear: string;
   createdAt: string;
   updatedAt: string;
@@ -60,6 +61,7 @@ export interface Teacher {
   phone: string;
   specialization: string;
   subjectIds: string[];
+  salary?: number;
   status: 'active' | 'inactive';
   hireDate: string;
   photo?: string;

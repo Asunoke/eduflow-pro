@@ -46,14 +46,13 @@ import type { Payment, Expense } from '@/types';
 import { PAYMENT_TYPES, PAYMENT_METHODS, EXPENSE_CATEGORIES } from '@/types';
 import { toast } from 'sonner';
 import { 
-  BarChart, 
-  Bar, 
+  AreaChart, 
+  Area, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 
 export default function Finances() {
@@ -270,35 +269,65 @@ export default function Finances() {
       </div>
 
       {/* Chart */}
-      <Card className="card-elevated mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">Évolution mensuelle</CardTitle>
+      <Card className="rounded-3xl border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900/50 backdrop-blur-sm mb-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-bold">Évolution mensuelle</CardTitle>
+          <div className="flex gap-4">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-3))]" /> Recettes
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-[hsl(var(--destructive))]" /> Dépenses
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[250px]">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 91%)" />
+              <AreaChart data={monthlyData}>
+                <defs>
+                  <linearGradient id="colorRecettes" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="month" 
-                  tick={{ fontSize: 12, fill: 'hsl(220, 9%, 46%)' }}
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fontSize: 12, fill: 'hsl(var(--muted-foreground))'}} 
+                  dy={10} 
                 />
                 <YAxis 
-                  tick={{ fontSize: 12, fill: 'hsl(220, 9%, 46%)' }}
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fontSize: 12, fill: 'hsl(var(--muted-foreground))'}}
                   tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(0, 0%, 100%)',
-                    border: '1px solid hsl(220, 13%, 91%)',
-                    borderRadius: '8px',
-                  }}
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))' }}
                   formatter={(value: number) => [formatCurrency(value)]}
                 />
-                <Legend />
-                <Bar dataKey="recettes" name="Recettes" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="depenses" name="Dépenses" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Area 
+                  type="monotone" 
+                  dataKey="recettes" 
+                  stroke="hsl(var(--chart-3))" 
+                  fillOpacity={1} 
+                  fill="url(#colorRecettes)" 
+                  strokeWidth={4}
+                  dot={{ r: 4, fill: 'hsl(var(--chart-3))', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6 }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="depenses" 
+                  stroke="hsl(var(--destructive))" 
+                  fillOpacity={0} 
+                  strokeWidth={4}
+                  strokeDasharray="5 5"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </CardContent>

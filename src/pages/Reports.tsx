@@ -77,14 +77,102 @@ export default function Reports() {
     },
   ];
 
-  const handleGenerateReport = (reportId: string) => {
-    // In a real app, this would generate and download a PDF/Excel file
-    toast.success('Génération du rapport en cours...');
+  const handleGenerateReport = async (reportId: string, format: 'pdf' | 'excel' = 'excel') => {
+    toast.info(`Préparation du rapport en format ${format.toUpperCase()}...`);
     
-    // Simulate report generation
-    setTimeout(() => {
-      toast.success('Rapport généré avec succès !');
-    }, 1500);
+    let reportData: any[] = [];
+    let filename = `rapport_${reportId}`;
+    let reportTitle = reports.find(r => r.id === reportId)?.title || "Rapport EduFlow Pro";
+
+    switch (reportId) {
+      case 'students':
+        reportData = students.map(s => ({
+          Matricule: s.matricule,
+          Prénom: s.firstName,
+          Nom: s.lastName,
+          Sexe: s.gender,
+          "Date de naissance": s.dateOfBirth,
+          Classe: classes.find(c => c.id === s.classId)?.name || 'N/A',
+          Statut: s.status,
+          "Parent/Tuteur": s.parentName,
+          Téléphone: s.parentPhone,
+          Email: s.parentEmail || '',
+          Adresse: s.address || '',
+          "Date inscription": s.enrollmentDate
+        }));
+        break;
+      
+      case 'classes':
+        reportData = classes.map(c => {
+          const level = levels.find(l => l.id === c.levelId);
+          const studentCount = students.filter(s => s.classId === c.id).length;
+          return {
+            Classe: c.name,
+            Niveau: level?.name || 'N/A',
+            Cycle: level?.cycleType || 'N/A',
+            "Nombre d'élèves": studentCount,
+            "Année scolaire": settings.currentAcademicYear
+          };
+        });
+        break;
+
+      case 'payments':
+        reportData = payments.map(p => {
+          const student = students.find(s => s.id === p.studentId);
+          return {
+            Date: p.date,
+            Élève: student ? `${student.firstName} ${student.lastName}` : 'N/A',
+            Matricule: student?.matricule || 'N/A',
+            Montant: p.amount,
+            Type: p.type,
+            Méthode: p.method,
+            Référence: p.reference || '',
+            Année: p.academicYear
+          };
+        });
+        break;
+
+      case 'finances':
+        // Recettes
+        const recData = payments.map(p => ({
+          Date: p.date,
+          Libellé: `Recette: ${p.type} - ${students.find(s => s.id === p.studentId)?.lastName || ''}`,
+          Entrée: p.amount,
+          Sortie: 0,
+          Catégorie: p.type
+        }));
+        // Dépenses
+        const depData = expenses.map(e => ({
+          Date: e.date,
+          Libellé: `Dépense: ${e.description}`,
+          Entrée: 0,
+          Sortie: e.amount,
+          Catégorie: e.category
+        }));
+        reportData = [...recData, ...depData].sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime());
+        break;
+
+      default:
+        toast.error('Génération non implémentée pour ce type de rapport.');
+        return;
+    }
+
+    if (reportData.length > 0) {
+      const { exportToExcel, exportToPDF } = await import('@/lib/exportUtils');
+      
+      let success = false;
+      if (format === 'excel') {
+        success = await exportToExcel(reportData, filename, reportId);
+      } else {
+        success = await exportToPDF(reportData, filename, reportTitle);
+      }
+
+      if (success) {
+        toast.success(`Rapport généré avec succès en format ${format.toUpperCase()}.`);
+      }
+    } else {
+      toast.warning('Aucune donnée à exporter pour ce rapport.');
+    }
   };
 
   const getIconBg = (color: string) => {
@@ -195,7 +283,7 @@ export default function Reports() {
               <CardContent>
                 <div className="flex gap-2">
                   <Button 
-                    onClick={() => handleGenerateReport(report.id)}
+                    onClick={() => handleGenerateReport(report.id, 'pdf')}
                     className="flex-1"
                     variant="outline"
                   >
@@ -203,7 +291,7 @@ export default function Reports() {
                     PDF
                   </Button>
                   <Button 
-                    onClick={() => handleGenerateReport(report.id)}
+                    onClick={() => handleGenerateReport(report.id, 'excel')}
                     className="flex-1"
                     variant="outline"
                   >

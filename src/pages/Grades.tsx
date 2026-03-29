@@ -38,7 +38,8 @@ import {
   Calculator,
   Save,
 } from 'lucide-react';
-import type { Grade } from '@/types';
+import { BulletinPreview } from '@/components/bulletins/BulletinPreview';
+import type { Grade, BulletinData } from '@/types';
 import { GRADE_TYPES } from '@/types';
 import { toast } from 'sonner';
 
@@ -60,8 +61,10 @@ export default function Grades() {
   );
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [gradeType, setGradeType] = useState<Grade['type']>('exam');
   const [gradeEntries, setGradeEntries] = useState<Record<string, number>>({});
+  const [bulletinData, setBulletinData] = useState<BulletinData[]>([]);
 
   const classStudents = students.filter((s) => s.classId === selectedClass && s.status === 'active');
   const classLevel = classes.find((c) => c.id === selectedClass);
@@ -84,7 +87,7 @@ export default function Grades() {
   const calculateClassAverage = () => {
     const averages = classStudents
       .map((student) => {
-        const studentGrades = subjects.flatMap((subject) =>
+        const studentGrades = levelSubjects.flatMap((subject) =>
           getStudentGrades(student.id, subject.id, selectedPeriod)
         );
         const avg = calculateAverage(studentGrades);
@@ -94,6 +97,56 @@ export default function Grades() {
 
     if (averages.length === 0) return '-';
     return (averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2);
+  };
+
+  const handleGenerateBulletins = () => {
+    if (!selectedClass || !selectedPeriod) return;
+
+    const period = periods.find(p => p.id === selectedPeriod);
+    const cls = classes.find(c => c.id === selectedClass);
+    const level = cls ? levels.find(l => l.id === cls.levelId) : null;
+
+    if (!period || !cls || !level) return;
+
+    // Calculate averages for all students to determine ranks
+    const studentAverages = classStudents.map(student => {
+      const allGrades = levelSubjects.flatMap(sub => getStudentGrades(student.id, sub.id, selectedPeriod));
+      const avg = calculateAverage(allGrades);
+      return { studentId: student.id, average: avg ? parseFloat(avg) : 0 };
+    });
+
+    const sortedAverages = [...studentAverages].sort((a, b) => b.average - a.average);
+
+    const fullBulletinData: BulletinData[] = classStudents.map(student => {
+      const studentAvg = studentAverages.find(s => s.studentId === student.id)?.average || 0;
+      const classRank = sortedAverages.findIndex(s => s.studentId === student.id) + 1;
+
+      const studentGrades = levelSubjects.map(subject => {
+        const subGrades = getStudentGrades(student.id, subject.id, selectedPeriod);
+        const subAvg = calculateAverage(subGrades);
+        return {
+          subject,
+          grades: subGrades,
+          average: subAvg ? parseFloat(subAvg) : 0,
+        };
+      });
+
+      return {
+        student,
+        class: cls,
+        level,
+        cycle: { id: 'mali', type: 'primaire', name: 'Enseignement Fondamental', order: 1, isActive: true, createdAt: '' }, // Fallback
+        period,
+        grades: studentGrades,
+        overallAverage: studentAvg,
+        classRank,
+        totalStudents: classStudents.length,
+        appreciation: studentAvg >= 10 ? 'Travail satisfaisant' : 'Travail insuffisant',
+      };
+    });
+
+    setBulletinData(fullBulletinData);
+    setIsPreviewOpen(true);
   };
 
   const handleOpenGradeEntry = () => {
@@ -402,6 +455,7 @@ export default function Grades() {
                   <Button 
                     className="w-full gradient-primary"
                     disabled={!selectedClass || !selectedPeriod}
+                    onClick={handleGenerateBulletins}
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     Générer les bulletins
@@ -410,13 +464,20 @@ export default function Grades() {
               </div>
               
               <p className="text-sm text-muted-foreground">
-                La génération des bulletins créera un fichier PDF pour chaque élève de la classe 
-                sélectionnée avec toutes les notes de la période.
+                La génération des bulletins créera une prévisualisation pour chaque élève de la classe 
+                sélectionnée. Vous pourrez ensuite les sauvegarder en PDF ou les envoyer via WhatsApp.
               </p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <BulletinPreview 
+        isOpen={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+        bulletins={bulletinData}
+        periodName={periods.find(p => p.id === selectedPeriod)?.name || ''}
+      />
 
       {/* Grade Entry Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
