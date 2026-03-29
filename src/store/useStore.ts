@@ -533,10 +533,25 @@ export const useStore = create<EduFlowState>()(
       getDashboardStats: () => {
         const state = get();
         const activeStudents = state.students.filter((s) => s.status === 'active').length;
+        
+        // Calcul des revenus réels (paiements)
         const totalPayments = state.payments.reduce((sum, p) => sum + p.amount, 0);
+        
+        // Calcul des dépenses réelles (expenses)
         const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
         
-        // Calculate average grade based on grading scale
+        // Calcul du revenu mensuel potentiel basé sur les mensualités des classes
+        const monthlyPotentialRevenue = state.classes.reduce((sum, cls) => {
+          const studentCount = state.students.filter(s => s.classId === cls.id && s.status === 'active').length;
+          return sum + (studentCount * (cls.monthlyFee || 0));
+        }, 0);
+
+        // Calcul des dépenses mensuelles fixes (salaires enseignants)
+        const monthlyFixedExpenses = state.teachers
+          .filter(t => t.status === 'active')
+          .reduce((sum, t) => sum + (t.salary || 0), 0);
+        
+        // Calculate average grade
         const maxGrade = state.settings.gradingScale === 'ten' ? 10 : 20;
         const allGrades = state.grades.filter((g) => g.value !== undefined);
         const averageGrade = allGrades.length > 0
@@ -550,7 +565,7 @@ export const useStore = create<EduFlowState>()(
           activeStudents,
           totalPayments,
           totalExpenses,
-          pendingPayments: 0,
+          pendingPayments: monthlyPotentialRevenue - totalPayments, // Simplification pour le demo
           averageGrade: Math.round(averageGrade * 100) / 100,
         };
       },
