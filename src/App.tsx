@@ -29,10 +29,10 @@ const App = () => {
 
   useEffect(() => {
     // Inject default template if none exists or if it needs the v2 update
-    if (!settings.templates || settings.templates.length === 0 || !settings.templates.some(t => t.id === "default-template-v2")) {
+    if (!settings.templates || settings.templates.length === 0 || !settings.templates.some(t => t.id === "default-template-v3")) {
       updateSettings({
         templates: [{
-          id: "default-template-v2",
+          id: "default-template-v3",
           name: "Bulletin Trimestriel (Officiel Mali)",
           description: "Le modèle par défaut avec en-tête, tableau des notes et espace de signature.",
           isDefault: true,
@@ -40,8 +40,8 @@ const App = () => {
             // HEADER
             { id: "h-grid", type: "grid", columns: 2, style: { margin: "0 0 10px 0" }, children: [
               { id: "h-col1", type: "container", children: [
-                { id: "h-ecole", type: "text", content: "MON ÉCOLE", style: { color: "#6b4e9b", fontSize: 28, fontWeight: "bold" } },
-                { id: "h-addr", type: "text", content: "Bamako, Mali", style: { color: "#64748b", fontSize: 13 } },
+                { id: "h-ecole", type: "text", content: "{{school.schoolName}}", style: { color: "#6b4e9b", fontSize: 28, fontWeight: "bold", textTransform: "uppercase" } },
+                { id: "h-addr", type: "text", content: "{{school.address}}", style: { color: "#64748b", fontSize: 13 } },
                 { id: "h-tel", type: "text", content: "Tél: {{school.phone}}", style: { color: "#64748b", fontSize: 13 } }
               ]},
               { id: "h-col2", type: "container", children: [

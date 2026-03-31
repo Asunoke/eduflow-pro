@@ -658,6 +658,63 @@ export default function Settings() {
                     placeholder="Quartier, Commune, Bamako, Mali"
                   />
                 </div>
+
+                {/* Logo Upload */}
+                <div className="space-y-3 md:col-span-2">
+                  <Label>Logo de l'établissement</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 w-24 h-24 rounded-xl border-2 border-dashed border-primary/30 bg-muted/30 flex items-center justify-center overflow-hidden">
+                      {formData.logo ? (
+                        <img src={formData.logo} alt="Logo" className="h-full w-full object-contain" />
+                      ) : (
+                        <Building2 className="h-8 w-8 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        id="logoUpload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 2 * 1024 * 1024) {
+                            toast.error('Le logo ne doit pas dépasser 2 Mo');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setFormData({ ...formData, logo: ev.target?.result as string });
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('logoUpload')?.click()}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choisir un logo
+                      </Button>
+                      {formData.logo && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => setFormData({ ...formData, logo: undefined })}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </Button>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">PNG, JPG — max 2 Mo</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

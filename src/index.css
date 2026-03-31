@@ -397,3 +397,87 @@
     text-wrap: balance;
   }
 }
+
+/* ============================================
+   PRINT STYLES - Impression des bulletins
+   ============================================ */
+@media print {
+  /* Masquer tout sauf le bulletin */
+  body > * { display: none !important; }
+
+  /* Afficher uniquement la feuille bulletin */
+  .bulletin-print-area {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 99999 !important;
+    background: white !important;
+  }
+
+  /* Masquer header, footer et boutons du dialog */
+  [role="dialog"] > div:first-child,
+  [role="dialog"] > div:last-child,
+  .bulletin-dialog-header,
+  .bulletin-dialog-footer,
+  button,
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+
+  /* Afficher le contenu du bulletin */
+  [role="dialog"] .bulletin-content-scrollable {
+    overflow: visible !important;
+    height: auto !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  /* La feuille A4 elle-même */
+  .bg-white.shadow-2xl {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 15mm !important;
+    box-shadow: none !important;
+    page-break-after: always !important;
+  }
+
+  /* Forcer le tableau à tenir en largeur */
+  table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    overflow: visible !important;
+    font-size: 9pt !important;
+  }
+
+  /* Supprimer le scroll horizontal du tableau */
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  th, td {
+    word-break: break-word !important;
+    white-space: normal !important;
+    padding: 4px 6px !important;
+  }
+
+  /* Supprimer les scrollbars */
+  * {
+    overflow: visible !important;
+    scrollbar-width: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}

@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useState } from 'react';
 import { toast } from 'sonner';
-
+import { PAYMENT_TYPES, EXPENSE_CATEGORIES } from '@/types';
 export default function Reports() {
   const { students, classes, levels, teachers, payments, expenses, periods, settings } = useStore();
   const [selectedPeriod, setSelectedPeriod] = useState<string>(
@@ -136,10 +136,10 @@ export default function Reports() {
         // Recettes
         const recData = payments.map(p => ({
           Date: p.date,
-          Libellé: `Recette: ${p.type} - ${students.find(s => s.id === p.studentId)?.lastName || ''}`,
+          Libellé: `Recette: ${PAYMENT_TYPES[p.type] || p.type} - ${students.find(s => s.id === p.studentId)?.lastName || ''}`,
           Entrée: p.amount,
           Sortie: 0,
-          Catégorie: p.type
+          Catégorie: PAYMENT_TYPES[p.type] || p.type
         }));
         // Dépenses
         const depData = expenses.map(e => ({
@@ -147,7 +147,7 @@ export default function Reports() {
           Libellé: `Dépense: ${e.description}`,
           Entrée: 0,
           Sortie: e.amount,
-          Catégorie: e.category
+          Catégorie: EXPENSE_CATEGORIES[e.category] || e.category
         }));
         reportData = [...recData, ...depData].sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime());
         break;

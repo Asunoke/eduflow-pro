@@ -95,8 +95,10 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative border-2 border-transparent transition-all rounded-md cursor-pointer",
-        isSelected ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-lg" : "hover:border-primary/30 hover:bg-muted/30"
+        "group relative border-2 transition-all rounded-md cursor-pointer",
+        isSelected 
+          ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-lg" 
+          : "border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-muted/20"
       )}
       onClick={onClick}
     >
@@ -123,6 +125,14 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
       <div style={blockStyle} className="min-h-[20px]">
         {block.type === 'text' && (
           <div className="whitespace-pre-wrap">{block.content || <span className="opacity-20 italic">Videz le texte...</span>}</div>
+        )}
+        
+        {block.type === 'image' && (
+          <div className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-primary/20 rounded-xl bg-muted/10 min-h-[80px]">
+            <ImageIcon className="h-8 w-8 opacity-20" />
+            <div className="text-xs font-bold text-muted-foreground/60 tracking-widest uppercase">Logo de l\'établissement</div>
+            <div className="text-[10px] text-muted-foreground/40">(Configurer dans Paramètres &rarr; École)</div>
+          </div>
         )}
         
         {block.type === 'table' && (

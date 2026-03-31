@@ -284,6 +284,25 @@ export async function exportToPDF(data: any[], filename: string, title: string) 
 }
 
 /**
+ * Exports data to an Excel (.xlsx) file
+ */
+export async function exportToExcel(data: any[], filename: string, sheetName: string = 'Rapport') {
+  if (data.length === 0) return false;
+
+  const headers = Object.keys(data[0]);
+  const rows = data.map(item => headers.map(h => item[h] ?? ''));
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(String(h).length + 4, 18) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
+
+  const arrayBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return await saveFile(new Uint8Array(arrayBuffer), filename, 'xlsx');
+}
+
+/**
  * Formatteur monétaire sécurisé pour jsPDF (remplace espaces insécables par espaces simples)
  */
 const formatMoney = (amount: number) => {

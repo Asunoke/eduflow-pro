@@ -39,6 +39,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
       student: data.student,
       bulletin: data,
       school: settings,
+      settings: settings,
       class: data.class,
       period: data.period
     };
@@ -147,7 +148,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
           const headerColor = block.style?.color || 'inherit';
 
           return (
-            <div key={block.id} className="overflow-hidden border rounded-lg" style={{ ...baseStyle, backgroundColor: 'transparent' }}>
+            <div key={block.id} className="overflow-hidden border rounded-lg" style={{ ...baseStyle, backgroundColor: 'transparent', color: 'inherit' }}>
               <Table>
                 <TableHeader style={{ backgroundColor: headerBg }}>
                   <TableRow className="hover:bg-transparent border-b-0">
