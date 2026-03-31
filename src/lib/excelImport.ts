@@ -76,9 +76,9 @@ const TEMPLATE_CONFIGS: Record<ImportTemplate, { label: string; columns: Templat
   },
 };
 
-// ==================== TEMPLATE GENERATION ====================
+import { saveFile } from './exportUtils';
 
-export function downloadTemplate(template: ImportTemplate) {
+export async function downloadTemplate(template: ImportTemplate) {
   const config = TEMPLATE_CONFIGS[template];
   
   // Header row
@@ -95,7 +95,9 @@ export function downloadTemplate(template: ImportTemplate) {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, config.label);
-  XLSX.writeFile(wb, `template_${template}_eduflow.xlsx`);
+  
+  const arrayBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await saveFile(new Uint8Array(arrayBuffer), `template_${template}_eduflow`, 'xlsx');
 }
 
 export function getTemplateInfo(template: ImportTemplate) {
@@ -311,6 +313,7 @@ export async function importSubjects(
         code: mapped.code.toUpperCase(),
         coefficient: parseFloat(mapped.coefficient) || 1,
         levelIds: [],
+        teacherIds: [],
         description: mapped.description || undefined,
       });
     }

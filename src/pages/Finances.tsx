@@ -499,8 +499,9 @@ export default function Finances() {
                 <Label>Montant *</Label>
                 <Input
                   type="number"
+                  step="any"
                   value={paymentData.amount || ''}
-                  onChange={(e) => setPaymentData({ ...paymentData, amount: parseFloat(e.target.value) })}
+                  onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                   placeholder="0"
                 />
               </div>
@@ -578,8 +579,9 @@ export default function Finances() {
                 <Label>Montant *</Label>
                 <Input
                   type="number"
+                  step="any"
                   value={expenseData.amount || ''}
-                  onChange={(e) => setExpenseData({ ...expenseData, amount: parseFloat(e.target.value) })}
+                  onChange={(e) => setExpenseData({ ...expenseData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                   placeholder="0"
                 />
               </div>

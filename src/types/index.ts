@@ -75,6 +75,7 @@ export interface Subject {
   code: string;
   coefficient: number;
   levelIds: string[];
+  teacherIds: string[];
   description?: string;
   createdAt: string;
   updatedAt: string;
@@ -139,6 +140,27 @@ export interface TuitionFee {
   createdAt: string;
 }
 
+export interface GradingConfig {
+  weights: Record<Grade['type'], number>;
+  calculationMethod: 'average' | 'weighted';
+  annualMethod: 'average' | 'weighted';
+  annualWeights?: number[]; // [1, 1, 1] pour T1, T2, T3
+  roundDecimals: number;
+  includeAbsenceAsZero: boolean;
+}
+
+export interface CalculationConfig {
+  mode: "normalized" | "direct";
+  weights: {
+    devoir: number;
+    composition: number;
+  };
+  normalizeBase?: {
+    devoir: number;
+    composition: number;
+  };
+}
+
 export interface SchoolSettings {
   id: string;
   schoolName: string;
@@ -147,6 +169,8 @@ export interface SchoolSettings {
   email: string;
   website?: string;
   logo?: string;
+  nif?: string; // Numéro d'Identification Fiscale (Mali)
+  stat?: string; // Numéro Statistique (Mali)
   currentAcademicYear: string;
   gradingScale: 'ten' | 'twenty'; // Notation sur 10 ou 20
   passingGrade: number;
@@ -154,6 +178,47 @@ export interface SchoolSettings {
   language: 'fr' | 'en';
   // Cycles actifs de l'école
   activeCycles: CycleType[];
+  gradingConfig: GradingConfig;
+  calculationConfig: CalculationConfig;
+  templates: BulletinTemplate[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BlockType = 'text' | 'table' | 'image' | 'divider' | 'grid' | 'container' | 'badge' | 'signature';
+
+export interface TemplateBlock {
+  id: string;
+  type: BlockType;
+  content?: string; // Pour le texte (peut contenir des {{variables}})
+  style?: {
+    fontSize?: number;
+    fontWeight?: string;
+    color?: string;
+    backgroundColor?: string;
+    textAlign?: 'left' | 'center' | 'right';
+    textDecoration?: string;
+    padding?: number;
+    margin?: number;
+    borderRadius?: number;
+    border?: string;
+    width?: string;
+    height?: string;
+    flex?: number;
+  };
+  children?: TemplateBlock[];
+  columns?: number; // Pour le type 'grid'
+  source?: 'grades' | 'info'; // Pour le type 'table'
+  config?: any; // Config spécifique (ex: colonnes du tableau)
+  isLocked?: boolean;
+}
+
+export interface BulletinTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  layout: TemplateBlock[];
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -179,13 +244,16 @@ export interface BulletinData {
   grades: {
     subject: Subject;
     grades: Grade[];
-    average: number;
+    homeworkAverage: number;
+    examAverage: number;
+    average: number; // Moyenne de la matière pondérée
     rank?: number;
   }[];
   overallAverage: number;
   classRank: number;
   totalStudents: number;
   appreciation: string;
+  mention?: string;
   decision?: AcademicDecision;
 }
 

@@ -46,7 +46,7 @@ const CYCLE_ICONS: Record<CycleType, React.ReactNode> = {
 };
 
 export default function Subjects() {
-  const { subjects, levels, settings, addSubject, updateSubject, deleteSubject } = useStore();
+  const { subjects, levels, teachers, settings, addSubject, updateSubject, deleteSubject } = useStore();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -69,6 +69,7 @@ export default function Subjects() {
         code: '',
         coefficient: 1,
         levelIds: [],
+        teacherIds: [],
         description: '',
       });
     }
@@ -114,6 +115,15 @@ export default function Subjects() {
     }
   };
 
+  const toggleTeacher = (teacherId: string) => {
+    const currentTeachers = formData.teacherIds || [];
+    if (currentTeachers.includes(teacherId)) {
+      setFormData({ ...formData, teacherIds: currentTeachers.filter((id) => id !== teacherId) });
+    } else {
+      setFormData({ ...formData, teacherIds: [...currentTeachers, teacherId] });
+    }
+  };
+
   // Grouper les niveaux par cycle
   const groupedLevels = levels.reduce((acc, level) => {
     if (!acc[level.cycleType]) acc[level.cycleType] = [];
@@ -154,6 +164,7 @@ export default function Subjects() {
                 <TableHead>Nom</TableHead>
                 <TableHead>Coefficient</TableHead>
                 <TableHead>Niveaux</TableHead>
+                <TableHead>Enseignants</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -172,15 +183,35 @@ export default function Subjects() {
                       {subject.levelIds.slice(0, 3).map((id) => {
                         const level = levels.find((l) => l.id === id);
                         return level ? (
-                          <Badge key={id} variant="secondary" className="text-xs">
+                          <Badge key={id} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                             {level.shortName}
                           </Badge>
                         ) : null;
                       })}
                       {subject.levelIds.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[10px] h-4">
                           +{subject.levelIds.length - 3}
                         </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {subject.teacherIds?.slice(0, 2).map((id) => {
+                        const teacher = teachers.find((t) => t.id === id);
+                        return teacher ? (
+                          <Badge key={id} variant="outline" className="text-[10px] h-4 border-primary/30 text-primary">
+                            {teacher.firstName[0]}. {teacher.lastName}
+                          </Badge>
+                        ) : null;
+                      })}
+                      {subject.teacherIds?.length > 2 && (
+                        <Badge variant="outline" className="text-[10px] h-4">
+                          +{subject.teacherIds.length - 2}
+                        </Badge>
+                      )}
+                      {!subject.teacherIds?.length && (
+                        <span className="text-[10px] text-muted-foreground italic">Non assigné</span>
                       )}
                     </div>
                   </TableCell>
@@ -220,93 +251,126 @@ export default function Subjects() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedSubject ? 'Modifier la matière' : 'Nouvelle matière'}
             </DialogTitle>
             <DialogDescription>
               {selectedSubject 
-                ? 'Modifiez les informations de la matière' 
+                ? 'Modifiez les informations de la matière et les enseignants assignés' 
                 : 'Définissez une nouvelle matière et ses paramètres'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nom de la matière *</Label>
-                <Input
-                  id="name"
-                  value={formData.name || ''}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Mathématiques"
-                />
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nom de la matière *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name || ''}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ex: Mathématiques"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Code *</Label>
+                    <Input
+                      id="code"
+                      value={formData.code || ''}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="Ex: MATH"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="coefficient">Coefficient</Label>
+                  <Input
+                    id="coefficient"
+                    type="number"
+                    step="any"
+                    value={formData.coefficient || ''}
+                    onChange={(e) => setFormData({ ...formData, coefficient: e.target.value === '' ? 1 : parseFloat(e.target.value) })}
+                    min={0.1}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Niveaux concernés</Label>
+                  <div className="border rounded-xl p-4 space-y-4 max-h-48 overflow-y-auto bg-slate-50/50 dark:bg-slate-900/50">
+                    {(['jardin', 'primaire', 'college', 'lycee'] as CycleType[]).map((cycleType) => {
+                      if (!activeCycles.includes(cycleType)) return null;
+                      const cycleLevels = groupedLevels[cycleType] || [];
+                      if (cycleLevels.length === 0) return null;
+                      return (
+                        <div key={cycleType}>
+                          <p className="text-[10px] font-black text-muted-foreground mb-2 flex items-center gap-2 uppercase tracking-widest">
+                            {CYCLE_ICONS[cycleType]}
+                            {CYCLE_SHORT_LABELS[cycleType]}
+                          </p>
+                          <div className="flex flex-wrap gap-3">
+                            {cycleLevels
+                              .sort((a, b) => a.order - b.order)
+                              .map((level) => (
+                                <label
+                                  key={level.id}
+                                  className="flex items-center gap-2 cursor-pointer group"
+                                >
+                                  <Checkbox
+                                    checked={formData.levelIds?.includes(level.id) || false}
+                                    onCheckedChange={() => toggleLevel(level.id)}
+                                  />
+                                  <span className="text-xs group-hover:text-primary transition-colors">{level.shortName}</span>
+                                </label>
+                              ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="code">Code *</Label>
-                <Input
-                  id="code"
-                  value={formData.code || ''}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="Ex: MATH"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="coefficient">Coefficient</Label>
-              <Input
-                id="coefficient"
-                type="number"
-                value={formData.coefficient || 1}
-                onChange={(e) => setFormData({ ...formData, coefficient: parseFloat(e.target.value) || 1 })}
-                min={0.5}
-                max={10}
-                step={0.5}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Niveaux concernés</Label>
-              <div className="border rounded-lg p-4 space-y-4 max-h-60 overflow-y-auto">
-                {(['jardin', 'primaire', 'college', 'lycee'] as CycleType[]).map((cycleType) => {
-                  if (!activeCycles.includes(cycleType)) return null;
-                  const cycleLevels = groupedLevels[cycleType] || [];
-                  if (cycleLevels.length === 0) return null;
-                  return (
-                    <div key={cycleType}>
-                      <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                        {CYCLE_ICONS[cycleType]}
-                        {CYCLE_SHORT_LABELS[cycleType]}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {cycleLevels
-                          .sort((a, b) => a.order - b.order)
-                          .map((level) => (
-                            <label
-                              key={level.id}
-                              className="flex items-center gap-2 cursor-pointer"
-                            >
-                              <Checkbox
-                                checked={formData.levelIds?.includes(level.id) || false}
-                                onCheckedChange={() => toggleLevel(level.id)}
-                              />
-                              <span className="text-sm">{level.shortName}</span>
-                            </label>
-                          ))}
-                      </div>
+                <Label>Enseignants assignés</Label>
+                <div className="border rounded-xl p-4 h-full min-h-[200px] max-h-[400px] overflow-y-auto bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+                  {teachers.filter(t => t.status === 'active').length > 0 ? (
+                    teachers
+                      .filter(t => t.status === 'active')
+                      .map((teacher) => (
+                        <label
+                          key={teacher.id}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer transition-all"
+                        >
+                          <Checkbox
+                            checked={formData.teacherIds?.includes(teacher.id) || false}
+                            onCheckedChange={() => toggleTeacher(teacher.id)}
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold">{teacher.firstName} {teacher.lastName}</span>
+                            <span className="text-[9px] text-muted-foreground uppercase">{teacher.specialization}</span>
+                          </div>
+                        </label>
+                      ))
+                  ) : (
+                    <div className="text-center py-10 text-muted-foreground">
+                      <p className="text-xs">Aucun enseignant actif trouvé.</p>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <DialogFooter className="bg-slate-50 dark:bg-slate-900/50 p-4 -mx-6 -mb-6 mt-4 border-t dark:border-slate-800">
+            <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>
               Annuler
             </Button>
             <Button onClick={handleSave} className="gradient-primary">
-              {selectedSubject ? 'Enregistrer' : 'Ajouter'}
+              {selectedSubject ? 'Enregistrer les modifications' : 'Ajouter la matière'}
             </Button>
           </DialogFooter>
         </DialogContent>

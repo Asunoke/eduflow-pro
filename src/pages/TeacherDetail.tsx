@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   ArrowLeft, 
@@ -30,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { exportTeacherPayslip } from '@/lib/exportUtils';
 
 export default function TeacherDetail() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +41,13 @@ export default function TeacherDetail() {
   const teacher = teachers.find((t) => t.id === id);
   const [isEditingSalary, setIsEditingSalary] = useState(false);
   const [salaryInput, setSalaryInput] = useState(teacher?.salary?.toString() || '0');
+  
+  // Primes (Allowances)
+  const [primes, setPrimes] = useState<{ label: string; amount: number }[]>([
+    { label: 'Indemnité de Fonction', amount: 0 },
+    { label: 'Indemnité de Transport', amount: 0 },
+    { label: 'Indemnité de Logement', amount: 0 },
+  ]);
 
   if (!teacher) {
     return (
@@ -76,6 +85,24 @@ export default function TeacherDetail() {
   const handleRemoveSubject = (subjectId: string) => {
     updateTeacher(teacher.id, { subjectIds: teacher.subjectIds.filter(id => id !== subjectId) });
     toast.success('Matière retirée');
+  };
+
+  const handleGeneratePayslip = async () => {
+    toast.info("Génération de la fiche de paie...");
+    const success = await exportTeacherPayslip(teacher, settings, primes.filter(p => p.amount > 0));
+    if (success) {
+      toast.success("Fiche de paie générée avec succès !");
+    }
+  };
+
+  const updatePrimeAmount = (index: number, amount: string) => {
+    const newPrimes = [...primes];
+    newPrimes[index].amount = parseFloat(amount) || 0;
+    setPrimes(newPrimes);
+  };
+
+  const addPrimeField = () => {
+    setPrimes([...primes, { label: 'Indemnité Spéciale', amount: 0 }]);
   };
 
   // Calcul Financier (Salaires)
@@ -247,19 +274,57 @@ export default function TeacherDetail() {
       value: "payroll",
       label: "Fiches de Paie",
       content: (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="font-bold flex items-center gap-2">
               <Banknote className="h-5 w-5 text-primary" />
-              Récapitulatif des paiements
+              Calculateur de Salaire (Primes)
             </h3>
-            <Button variant="outline" size="sm" className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
-              Générer fiche de paie
+            <Button onClick={handleGeneratePayslip} className="gradient-primary h-8 text-xs">
+              <Save className="h-3 w-3 mr-2" />
+              Générer Bulletin
             </Button>
           </div>
-          <div className="p-8 border-2 border-dashed rounded-3xl text-center space-y-2">
-            <Clock className="h-10 w-10 text-muted-foreground mx-auto opacity-20" />
-            <p className="text-sm font-medium text-muted-foreground">L'historique des fiches de paie sera disponible prochainement.</p>
+          
+          <Card className="rounded-2xl border-none bg-slate-50 dark:bg-slate-800/20 p-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b">
+                <span className="text-sm font-bold">Salaire de Base</span>
+                <span className="text-sm font-black font-mono text-primary">{(teacher.salary || 0).toLocaleString()} {settings.currency}</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {primes.map((prime, idx) => (
+                  <div key={idx} className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">{prime.label}</Label>
+                    <Input 
+                      type="number" 
+                      step="any"
+                      placeholder="0"
+                      value={prime.amount || ''}
+                      onChange={(e) => updatePrimeAmount(idx, e.target.value)}
+                      className="h-9 font-mono"
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              <Button variant="ghost" size="sm" onClick={addPrimeField} className="w-full border-2 border-dashed border-muted text-muted-foreground hover:bg-slate-100">
+                <Plus className="h-3 w-3 mr-2" /> Ajouter une ligne d'indemnité
+              </Button>
+            </div>
+          </Card>
+
+          <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 flex justify-between items-center">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Salaire Brut Estimé</span>
+              <span className="text-xl font-black text-primary">
+                {(teacher.salary + primes.reduce((s, p) => s + p.amount, 0)).toLocaleString()} {settings.currency}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground max-w-[200px] text-right">
+              Les retenues (INPS, AMO, ITS) seront calculées automatiquement selon les taux en vigueur au Mali sur le PDF final.
+            </p>
           </div>
         </div>
       )
@@ -279,6 +344,7 @@ export default function TeacherDetail() {
         initials={initials}
         name={`${teacher.lastName} ${teacher.firstName}`}
         photo={teacher.photo}
+        showRating={false}
         infoGroups={infoGroups}
         tabs={tabs}
       />

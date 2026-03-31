@@ -11,6 +11,9 @@ interface ProfileLayoutProps {
   photo?: string;
   rating?: number;
   trustScore?: number;
+  showRating?: boolean;
+  scoreLabel?: string;
+  numGrades?: number;
   infoGroups: {
     title: string;
     items: {
@@ -30,8 +33,11 @@ export function ProfileLayout({
   initials,
   name,
   photo,
-  rating = 4.8,
-  trustScore = 85,
+  rating = 0,
+  trustScore = 0,
+  showRating = true,
+  scoreLabel = "Performances",
+  numGrades = 0,
   infoGroups,
   tabs
 }: ProfileLayoutProps) {
@@ -49,32 +55,36 @@ export function ProfileLayout({
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-2 -right-2 bg-white dark:bg-slate-800 rounded-full p-1 shadow-md">
-                  <ShieldCheck className="h-6 w-6 text-success" />
-                </div>
               </div>
               
               <div className="space-y-1">
                 <h2 className="text-xl font-bold text-foreground">{name}</h2>
-                <div className="flex items-center justify-center gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star 
-                      key={s} 
-                      className={`h-4 w-4 ${s <= Math.round(rating) ? 'fill-warning text-warning' : 'text-muted'}`} 
-                    />
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-1">214 notes</span>
-                </div>
+                {showRating && (
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star 
+                          key={s} 
+                          className={`h-4 w-4 ${s <= Math.round(rating) ? 'fill-warning text-warning' : 'text-muted'}`} 
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground mt-1 font-medium">{numGrades} évaluations</span>
+                  </div>
+                )}
               </div>
 
-              <div className="w-full space-y-2 pt-2 text-left">
-                <div className="flex justify-between text-xs font-medium">
-                  <span className="text-muted-foreground">Score de confiance</span>
-                  <span className="text-primary font-bold">{trustScore}%</span>
+              {showRating && (
+                <div className="w-full space-y-2 pt-2 text-left">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-muted-foreground">{scoreLabel}</span>
+                    <span className="text-primary font-bold">{Math.round(trustScore)}%</span>
+                  </div>
+                  <Progress value={trustScore} className="h-1.5" />
                 </div>
-                <Progress value={trustScore} className="h-1.5" />
-              </div>
+              )}
             </div>
+
 
             {/* Content section */}
             <div className="flex-1 p-8">

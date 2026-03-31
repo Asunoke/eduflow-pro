@@ -103,11 +103,11 @@ export default function Dashboard() {
       variant: "blue",
     },
     {
-      title: "Reste à percevoir",
-      value: formatCurrency(stats.pendingPayments),
-      description: "Basé sur les mensualités",
-      icon: Clock,
-      variant: stats.pendingPayments > 1000000 ? "blue" : "purple"
+      title: "Enseignants",
+      value: teachers.length.toString(),
+      description: "Personnel éducatif",
+      icon: School,
+      variant: "purple"
     },
     {
       title: "Dépenses (Salaires)",

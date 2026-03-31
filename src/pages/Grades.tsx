@@ -41,6 +41,7 @@ import {
 import { BulletinPreview } from '@/components/bulletins/BulletinPreview';
 import type { Grade, BulletinData } from '@/types';
 import { GRADE_TYPES } from '@/types';
+import { gradingService } from '@/lib/gradingService';
 import { toast } from 'sonner';
 
 export default function Grades() {
@@ -51,6 +52,8 @@ export default function Grades() {
     subjects, 
     grades, 
     periods,
+    cycles,
+    settings,
     addGrade, 
     updateGrade 
   } = useStore();
@@ -78,25 +81,21 @@ export default function Grades() {
     );
   };
 
-  const calculateAverage = (studentGrades: Grade[]) => {
-    if (studentGrades.length === 0) return null;
-    const total = studentGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * 20, 0);
-    return (total / studentGrades.length).toFixed(2);
-  };
-
   const calculateClassAverage = () => {
     const averages = classStudents
       .map((student) => {
-        const studentGrades = levelSubjects.flatMap((subject) =>
-          getStudentGrades(student.id, subject.id, selectedPeriod)
-        );
-        const avg = calculateAverage(studentGrades);
-        return avg ? parseFloat(avg) : null;
-      })
-      .filter((avg) => avg !== null) as number[];
+        const studentSubjectAverages = levelSubjects.map((subject) => {
+          const subGrades = getStudentGrades(student.id, subject.id, selectedPeriod);
+          const results = gradingService.calculateSubjectAverage(subGrades, settings.gradingConfig, settings.calculationConfig);
+          return { average: results.totalAvg, coefficient: subject.coefficient };
+        });
+        
+        return gradingService.calculatePeriodAverage(studentSubjectAverages, settings.gradingConfig);
+      });
 
     if (averages.length === 0) return '-';
-    return (averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2);
+    const classAvg = averages.reduce((a, b) => a + b, 0) / averages.length;
+    return gradingService.round(classAvg, settings.gradingConfig.roundDecimals);
   };
 
   const handleGenerateBulletins = () => {
@@ -104,48 +103,50 @@ export default function Grades() {
 
     const period = periods.find(p => p.id === selectedPeriod);
     const cls = classes.find(c => c.id === selectedClass);
-    const level = cls ? levels.find(l => l.id === cls.levelId) : null;
+    if (!period || !cls) return;
 
-    if (!period || !cls || !level) return;
+    const level = levels.find(l => l.id === cls.levelId);
+    if (!level) return;
 
-    // Calculate averages for all students to determine ranks
-    const studentAverages = classStudents.map(student => {
-      const allGrades = levelSubjects.flatMap(sub => getStudentGrades(student.id, sub.id, selectedPeriod));
-      const avg = calculateAverage(allGrades);
-      return { studentId: student.id, average: avg ? parseFloat(avg) : 0 };
-    });
-
-    const sortedAverages = [...studentAverages].sort((a, b) => b.average - a.average);
-
-    const fullBulletinData: BulletinData[] = classStudents.map(student => {
-      const studentAvg = studentAverages.find(s => s.studentId === student.id)?.average || 0;
-      const classRank = sortedAverages.findIndex(s => s.studentId === student.id) + 1;
-
+    const studentBulletinData = classStudents.map(student => {
       const studentGrades = levelSubjects.map(subject => {
         const subGrades = getStudentGrades(student.id, subject.id, selectedPeriod);
-        const subAvg = calculateAverage(subGrades);
+        const results = gradingService.calculateSubjectAverage(subGrades, settings.gradingConfig, settings.calculationConfig);
+        
         return {
           subject,
           grades: subGrades,
-          average: subAvg ? parseFloat(subAvg) : 0,
+          homeworkAverage: results.homeworkAvg,
+          examAverage: results.examAvg,
+          average: results.totalAvg,
         };
       });
+
+      const overallAverage = gradingService.calculatePeriodAverage(
+        studentGrades.map(sg => ({ average: sg.average, coefficient: sg.subject.coefficient })),
+        settings.gradingConfig
+      );
+
+      const cycle = cycles.find(c => c.type === level.cycleType) || cycles[0] || { id: 'mali', type: level.cycleType, name: 'Scolarité', order: 1, isActive: true, createdAt: '' };
 
       return {
         student,
         class: cls,
         level,
-        cycle: { id: 'mali', type: 'primaire', name: 'Enseignement Fondamental', order: 1, isActive: true, createdAt: '' }, // Fallback
+        cycle,
         period,
         grades: studentGrades,
-        overallAverage: studentAvg,
-        classRank,
+        overallAverage,
+        classRank: 0,
         totalStudents: classStudents.length,
-        appreciation: studentAvg >= 10 ? 'Travail satisfaisant' : 'Travail insuffisant',
+        appreciation: gradingService.getAppreciation(overallAverage),
+        mention: gradingService.getMention(overallAverage),
+        decision: gradingService.getDecision(overallAverage, period.name),
       };
     });
 
-    setBulletinData(fullBulletinData);
+    const rankedBulletins = gradingService.rankStudents(studentBulletinData);
+    setBulletinData(rankedBulletins);
     setIsPreviewOpen(true);
   };
 
@@ -364,10 +365,21 @@ export default function Grades() {
                 </TableHeader>
                 <TableBody>
                   {classStudents.map((student) => {
-                    const allStudentGrades = levelSubjects.flatMap((subject) =>
-                      getStudentGrades(student.id, subject.id, selectedPeriod)
+                    const studentSubjectAverages = levelSubjects.map((subject) => {
+                      const subGrades = getStudentGrades(student.id, subject.id, selectedPeriod);
+                      return {
+                        subjectId: subject.id,
+                        avg: gradingService.calculateSubjectAverage(subGrades, settings.gradingConfig, settings.calculationConfig).totalAvg
+                      };
+                    });
+                    
+                    const periodAvg = gradingService.calculatePeriodAverage(
+                      levelSubjects.map(s => ({
+                        average: studentSubjectAverages.find(sa => sa.subjectId === s.id)?.avg || 0,
+                        coefficient: s.coefficient
+                      })),
+                      settings.gradingConfig
                     );
-                    const avg = calculateAverage(allStudentGrades);
                     
                     return (
                       <TableRow key={student.id} className="table-row-hover">
@@ -375,24 +387,21 @@ export default function Grades() {
                           {student.lastName} {student.firstName}
                         </TableCell>
                         {levelSubjects.slice(0, 5).map((subject) => {
-                          const subjectGrades = getStudentGrades(student.id, subject.id, selectedPeriod);
-                          const subjectAvg = calculateAverage(subjectGrades);
+                          const avg = studentSubjectAverages.find(sa => sa.subjectId === subject.id)?.avg || 0;
                           return (
                             <TableCell key={subject.id} className="text-center">
-                              {subjectAvg ? (
-                                <span className={getGradeColor(parseFloat(subjectAvg))}>
-                                  {subjectAvg}
+                              {avg > 0 ? (
+                                <span className={getGradeColor(avg)}>
+                                  {avg.toFixed(settings.gradingConfig?.roundDecimals ?? 2)}
                                 </span>
                               ) : '-'}
                             </TableCell>
                           );
                         })}
-                        <TableCell className="text-center">
-                          {avg ? (
-                            <span className={`font-bold ${getGradeColor(parseFloat(avg))}`}>
-                              {avg}
-                            </span>
-                          ) : '-'}
+                        <TableCell className="text-center font-bold">
+                          <span className={getGradeColor(periodAvg)}>
+                            {periodAvg.toFixed(settings.gradingConfig?.roundDecimals ?? 2)}
+                          </span>
                         </TableCell>
                       </TableRow>
                     );
@@ -497,13 +506,11 @@ export default function Grades() {
                 </span>
                 <Input
                   type="number"
-                  min={0}
-                  max={20}
-                  step={0.5}
+                  step="any"
                   value={gradeEntries[student.id] ?? ''}
                   onChange={(e) => setGradeEntries({
                     ...gradeEntries,
-                    [student.id]: parseFloat(e.target.value)
+                    [student.id]: e.target.value === '' ? 0 : parseFloat(e.target.value)
                   })}
                   className="w-24 text-center"
                   placeholder="/20"

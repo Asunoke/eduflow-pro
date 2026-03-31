@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { MainLayout } from '@/components/layout';
 import { PageHeader, ConfirmDialog } from '@/components/shared';
@@ -41,8 +41,22 @@ import {
   Receipt,
   CheckCircle2,
   AlertCircle,
+  Calculator,
   FileDown,
+  ShieldCheck,
+  Zap,
+  FileCheck,
+  AlertTriangle,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import type { CycleType } from '@/types';
 import { CYCLE_LABELS, GRADING_SCALE_LABELS } from '@/types';
@@ -308,11 +322,175 @@ function ExcelImportSection() {
   );
 }
 
+function SystemDiagnostic() {
+  const [isChecking, setIsChecking] = useState(false);
+  const [report, setReport] = useState<{
+    status: 'ok' | 'error' | 'warning' | null;
+    message: string;
+    details?: string;
+  }>({ status: null, message: 'Prêt pour le diagnostic' });
+
+  const runCheck = async () => {
+    setIsChecking(true);
+    setReport({ status: null, message: 'Analyse en cours...' });
+
+    // 1. Detection de l'environnement
+    const isTauri = (window as any).__TAURI_INTERNALS__;
+    
+    if (!isTauri) {
+      setReport({
+        status: 'warning',
+        message: 'Mode Navigateur Web',
+        details: 'Vous utilisez la version Web. Les permissions de fichiers locaux sont gérées par votre navigateur. L\'exportation PDF fonctionnera via le dossier Téléchargements standard.'
+      });
+      setIsChecking(false);
+      return;
+    }
+
+    try {
+      const { writeFile, remove, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      
+      const testContent = new TextEncoder().encode("eduflow-permission-test");
+      const fileName = `test-permission-${Date.now()}.txt`;
+      
+      // Test d'écriture dans Documents
+      await writeFile(fileName, testContent, { baseDir: BaseDirectory.Document });
+      
+      // Test d'existence
+      const isThere = await exists(fileName, { baseDir: BaseDirectory.Document });
+      if (!isThere) throw new Error("Le fichier n'a pas été détecté après écriture.");
+
+      // Nettoyage
+      await remove(fileName, { baseDir: BaseDirectory.Document });
+      
+      setReport({
+        status: 'ok',
+        message: 'Système de fichiers OK',
+        details: 'L\'application dispose de tous les droits nécessaires pour enregistrer vos fichiers PDF et Excel sur votre PC.'
+      });
+      toast.success("Diagnostic terminé : Tout est parfait !");
+    } catch (err: any) {
+      console.error(report.message, err);
+      setReport({
+        status: 'error',
+        message: 'Permissions restreintes détectées',
+        details: `L'application n'a pas pu écrire sur le disque. Cause possible : ${err.message || 'Blocage Windows ou Tauri'}. Vérifiez vos dossiers de sécurité Windows ou relancez l'application en mode Administrateur.`
+      });
+      toast.error("Erreur de permissions détectée");
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  return (
+    <Card className="card-elevated border-primary/20 bg-primary/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          État du système & Sécurité
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Vérifiez si l'application dispose des permissions nécessaires pour sauvegarder vos documents.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-primary/10 mb-4">
+          <div className="flex items-center gap-3">
+            {report.status === 'ok' && <CheckCircle2 className="h-5 w-5 text-success" />}
+            {report.status === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
+            {report.status === 'warning' && <AlertTriangle className="h-5 w-5 text-warning" />}
+            {report.status === null && <Zap className="h-5 w-5 text-muted-foreground" />}
+            <div>
+              <p className="text-sm font-medium">{report.message}</p>
+              <p className="text-[10px] text-muted-foreground">Appuyez sur "Lancer le test" pour vérifier</p>
+            </div>
+          </div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={runCheck}
+            disabled={isChecking}
+          >
+            {isChecking ? "Recherche..." : "Lancer le test"}
+          </Button>
+        </div>
+
+        {report.details && (
+          <div className={`p-3 rounded-lg text-xs ${
+            report.status === 'ok' ? 'bg-success/10 text-success' : 
+            report.status === 'warning' ? 'bg-warning/10 text-warning' : 
+            'bg-destructive/10 text-destructive'
+          }`}>
+            <p className="font-semibold mb-1">Détails :</p>
+            {report.details}
+          </div>
+        )}
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="link" className="text-[10px] p-0 h-auto mt-2 text-primary">
+              Besoin d'aide avec les permissions ?
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Guide des Permissions Windows</DialogTitle>
+              <DialogDescription>
+                Si vous ne parvenez pas à enregistrer vos fichiers :
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4 text-sm">
+              <div className="space-y-2">
+                <p className="font-semibold flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white">1</span>
+                  Antivirus / Windows Defender
+                </p>
+                <p className="text-muted-foreground">Certains antivirus bloquent l'écriture de nouvelles applications. Ajoutez EduFlow à la liste des exceptions.</p>
+              </div>
+              <div className="space-y-2">
+                <p className="font-semibold flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white">2</span>
+                  Mode Administrateur
+                </p>
+                <p className="text-muted-foreground">Faites un clic droit sur l'application et choisissez "Exécuter en tant qu'administrateur".</p>
+              </div>
+              <div className="space-y-2">
+                <p className="font-semibold flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-white">3</span>
+                  Dossier Protégé
+                </p>
+                <p className="text-muted-foreground">Évitez d'enregistrer directement à la racine du disque C:. Utilisez vos documents ou le bureau.</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Settings() {
-  const { settings, academicYears, updateSettings, exportData, importData, resetData, setActiveAcademicYear, toggleCycleActive } = useStore();
+  const { settings, academicYears, updateSettings, exportData, importData, resetData, setActiveAcademicYear, toggleCycleActive, addAcademicYear } = useStore();
   const [formData, setFormData] = useState(settings);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Generate years from 2020 to 2500
+  const generatedYears = Array.from({ length: 481 }, (_, i) => `${2020 + i}-${2021 + i}`);
+
+  const handleYearChange = (yearName: string) => {
+    const existing = academicYears.find(y => y.name === yearName);
+    if (!existing) {
+      addAcademicYear({
+        name: yearName,
+        startDate: `${yearName.split('-')[0]}-09-01`,
+        endDate: `${yearName.split('-')[1]}-06-30`,
+        isActive: false
+      });
+    }
+    setActiveAcademicYear(yearName);
+    setFormData(prev => ({ ...prev, currentAcademicYear: yearName }));
+  };
 
   const handleSave = () => {
     updateSettings(formData);
@@ -372,7 +550,7 @@ export default function Settings() {
       </PageHeader>
 
       <Tabs defaultValue="school" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+        <TabsList className="flex flex-wrap w-full justify-start h-auto lg:inline-flex lg:w-auto">
           <TabsTrigger value="school" className="gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">École</span>
@@ -392,6 +570,10 @@ export default function Settings() {
           <TabsTrigger value="backup" className="gap-2">
             <Database className="h-4 w-4" />
             <span className="hidden sm:inline">Sauvegarde</span>
+          </TabsTrigger>
+          <TabsTrigger value="grading" className="gap-2">
+            <Calculator className="h-4 w-4" />
+            <span className="hidden sm:inline">Notation</span>
           </TabsTrigger>
           <TabsTrigger value="system" className="gap-2">
             <Shield className="h-4 w-4" />
@@ -447,6 +629,24 @@ export default function Settings() {
                     value={formData.website || ''}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                     placeholder="https://www.ecole.ml"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nif">NIF (Identification Fiscale)</Label>
+                  <Input
+                    id="nif"
+                    value={formData.nif || ''}
+                    onChange={(e) => setFormData({ ...formData, nif: e.target.value })}
+                    placeholder="Ex: 081234567A"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stat">Numéro STAT</Label>
+                  <Input
+                    id="stat"
+                    value={formData.stat || ''}
+                    onChange={(e) => setFormData({ ...formData, stat: e.target.value })}
+                    placeholder="Ex: 123456789"
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -517,18 +717,21 @@ export default function Settings() {
                 <div className="space-y-2">
                   <Label>Année scolaire active</Label>
                   <Select
-                    value={academicYears.find((y) => y.isActive)?.id || ''}
-                    onValueChange={(value) => setActiveAcademicYear(value)}
+                    value={academicYears.find((y) => y.isActive)?.name || ''}
+                    onValueChange={handleYearChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionner une année" />
                     </SelectTrigger>
                     <SelectContent>
-                      {academicYears.map((year) => (
-                        <SelectItem key={year.id} value={year.id}>
-                          {year.name} {year.isActive && '(actif)'}
-                        </SelectItem>
-                      ))}
+                      {generatedYears.map((year) => {
+                        const isCurrentlyActive = academicYears.find(y => y.isActive)?.name === year;
+                        return (
+                          <SelectItem key={year} value={year}>
+                            {year} {isCurrentlyActive && '(actif)'}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -590,35 +793,9 @@ export default function Settings() {
                 </p>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {useStore().classes.map((cls) => {
-                    const [tempVal, setTempVal] = useState(cls.monthlyFee?.toString() || '0');
-                    return (
-                      <div key={cls.id} className="p-3 rounded-xl border bg-card flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <Label className="font-bold">{cls.name}</Label>
-                          <Badge variant="outline" className="text-[10px]">
-                            {useStore().levels.find(l => l.id === cls.levelId)?.name}
-                          </Badge>
-                        </div>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            step="any"
-                            value={tempVal}
-                            onChange={(e) => setTempVal(e.target.value)}
-                            onBlur={() => {
-                              const v = parseFloat(tempVal);
-                              if (!isNaN(v)) useStore().updateClass(cls.id, { monthlyFee: v });
-                            }}
-                            className="pr-12 font-mono"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold">
-                            {formData.currency}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {useStore().classes.map((cls) => (
+                    <MonthlyFeeInput key={cls.id} cls={cls} currency={formData.currency || ''} />
+                  ))}
                   {useStore().classes.length === 0 && (
                     <p className="text-sm italic text-muted-foreground col-span-full py-4 text-center">
                       Aucune classe configurée. Créez des classes pour définir les mensualités.
@@ -633,6 +810,7 @@ export default function Settings() {
         <TabsContent value="import">
           <ExcelImportSection />
         </TabsContent>
+
 
         <TabsContent value="backup">
           <div className="grid gap-6">
@@ -748,8 +926,248 @@ export default function Settings() {
                   <p>© 2024 EduFlow. Tous droits réservés.</p>
                 </div>
               </div>
+
+              <Separator />
+
+              <SystemDiagnostic />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="grading">
+          <div className="grid gap-6">
+            <Card className="card-elevated group overflow-hidden">
+              <CardHeader className="relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-primary" />
+                  Configuration des Moyennes
+                </CardTitle>
+                <CardDescription>
+                  Définissez comment les moyennes sont calculées pour les bulletins
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                {/* Subject Average Logic */}
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Méthode de calcul des moyennes</h4>
+                      <p className="text-xs text-muted-foreground mt-1">Choisissez la formule de calcul des matières</p>
+                    </div>
+                    <Select 
+                      value={formData.calculationConfig?.mode || 'normalized'} 
+                      onValueChange={(v: any) => setFormData({
+                        ...formData, 
+                        calculationConfig: { ...(formData.calculationConfig || { weights: { devoir: 1, composition: 2 }, normalizeBase: { devoir: 20, composition: 40 } }), mode: v }
+                      })}
+                    >
+                      <SelectTrigger className="w-full sm:w-[220px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normalized">Normalisé (Pondéré)</SelectItem>
+                        <SelectItem value="direct">Direct (Terrain Mali)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.calculationConfig?.mode === 'normalized' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Poids Devoirs</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.calculationConfig?.weights.devoir}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            calculationConfig: {
+                              ...(formData.calculationConfig as any),
+                              weights: { ...formData.calculationConfig?.weights, devoir: parseFloat(e.target.value) || 1 }
+                            }
+                          })}
+                          className="h-11 font-bold"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Poids Compositions</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.calculationConfig?.weights.composition}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            calculationConfig: {
+                              ...(formData.calculationConfig as any),
+                              weights: { ...formData.calculationConfig?.weights, composition: parseFloat(e.target.value) || 1 }
+                            }
+                          })}
+                          className="h-11 font-bold"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Base Devoirs (/)</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.calculationConfig?.normalizeBase?.devoir || 20}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            calculationConfig: {
+                              ...(formData.calculationConfig as any),
+                              normalizeBase: { ...formData.calculationConfig?.normalizeBase, devoir: parseFloat(e.target.value) || 20 } as any
+                            }
+                          })}
+                          className="h-11 font-bold"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Base Compo (/)</Label>
+                        <Input 
+                          type="number" 
+                          value={formData.calculationConfig?.normalizeBase?.composition || 40}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            calculationConfig: {
+                              ...(formData.calculationConfig as any),
+                              normalizeBase: { ...formData.calculationConfig?.normalizeBase, composition: parseFloat(e.target.value) || 40 } as any
+                            }
+                          })}
+                          className="h-11 font-bold"
+                        />
+                      </div>
+                      <div className="col-span-1 sm:col-span-2 lg:col-span-4 mt-2 p-4 border border-dashed rounded-lg bg-white dark:bg-black/20 text-xs">
+                        <p className="font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                          <Calculator className="h-3 w-3" />
+                          Aperçu du calcul :
+                        </p>
+                        <code className="text-primary/80 font-mono block p-2 bg-primary/5 rounded border border-primary/10 break-words leading-relaxed text-[11px]">
+                          [ ((Note_Devoir / {formData.calculationConfig?.normalizeBase?.devoir || 20}) * 20 * {formData.calculationConfig?.weights.devoir}) + 
+                          <br />  ((Note_Compo / {formData.calculationConfig?.normalizeBase?.composition || 40}) * 20 * {formData.calculationConfig?.weights.composition}) ] 
+                          <br />/ ({formData.calculationConfig?.weights.devoir} + {formData.calculationConfig?.weights.composition})
+                        </code>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="border border-dashed rounded-lg bg-white dark:bg-black/20 p-4 text-xs">
+                        <p className="font-semibold text-muted-foreground flex items-center gap-2 mb-2">
+                          <Calculator className="h-3 w-3" />
+                          Aperçu du calcul (Terrain Mali) :
+                        </p>
+                        <code className="text-primary font-mono bg-primary/10 border border-primary/20 rounded py-1 px-3 mt-1 inline-block text-[13px] font-bold shadow-sm">
+                          (Moyenne_Devoirs + Moyenne_Compo) / 3
+                        </code>
+                        <p className="mt-3 text-muted-foreground/80 italic text-[11px]">
+                          Le score est l'addition directe sans proportionnalité préalable. Ce mode implique généralement des interrogations notées globalement sur 20 et une composition sur 40.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="bg-slate-100 dark:bg-slate-800" />
+
+                {/* Annual Average Logic */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-900">Moyenne Annuelle</h4>
+                      <p className="text-xs text-muted-foreground mt-1">Calcul pour le bilan de fin d'année</p>
+                    </div>
+                    <Select 
+                      value={formData.gradingConfig.annualMethod} 
+                      onValueChange={(v: any) => setFormData({
+                        ...formData, 
+                        gradingConfig: { ...formData.gradingConfig, annualMethod: v }
+                      })}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="average">Moyenne Simple</SelectItem>
+                        <SelectItem value="weighted">Poids par Trimestre</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.gradingConfig.annualMethod === 'weighted' && (
+                    <div className="grid grid-cols-3 gap-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      {[1, 2, 3].map((num, i) => (
+                        <div key={num} className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Coef T{num}</Label>
+                          <Input 
+                            type="number" 
+                            value={formData.gradingConfig.annualWeights?.[i] || 1}
+                            onChange={(e) => {
+                              const newWeights = [...(formData.gradingConfig.annualWeights || [1, 1, 1])];
+                              newWeights[i] = parseInt(e.target.value) || 1;
+                              setFormData({
+                                ...formData,
+                                gradingConfig: { ...formData.gradingConfig, annualWeights: newWeights }
+                              });
+                            }}
+                            className="h-10 text-center font-bold"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="bg-slate-100 dark:bg-slate-800" />
+
+                {/* General Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="flex items-center justify-between p-4 border rounded-2xl">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold">Gestion des Absences</Label>
+                      <p className="text-xs text-muted-foreground">Compter une absence comme un 0/20</p>
+                    </div>
+                    <Switch 
+                      checked={formData.gradingConfig.includeAbsenceAsZero}
+                      onCheckedChange={(checked) => setFormData({
+                        ...formData,
+                        gradingConfig: { ...formData.gradingConfig, includeAbsenceAsZero: checked }
+                      })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 border rounded-2xl">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold">Arrondis des Notes</Label>
+                      <p className="text-xs text-muted-foreground">Nombre de décimales après la virgule</p>
+                    </div>
+                    <Select 
+                      value={formData.gradingConfig.roundDecimals.toString()} 
+                      onValueChange={(v) => setFormData({
+                        ...formData, 
+                        gradingConfig: { ...formData.gradingConfig, roundDecimals: parseInt(v) }
+                      })}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">0</SelectItem>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 p-6 rounded-3xl flex gap-4">
+              <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-500 shrink-0" />
+              <div>
+                <h5 className="text-sm font-black text-amber-800 dark:text-amber-400 uppercase tracking-widest mb-1">Attention</h5>
+                <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed">
+                  Modifier ces paramètres affectera instantanément le calcul de tous les bulletins de la classe. 
+                  Assurez-vous que ces règles correspondent au règlement pédagogique de votre zone scolaire.
+                </p>
+              </div>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -766,3 +1184,41 @@ export default function Settings() {
     </MainLayout>
   );
 }
+
+function MonthlyFeeInput({ cls, currency }: { cls: any, currency: string }) {
+  const updateClass = useStore(state => state.updateClass);
+  const levels = useStore(state => state.levels);
+  const [tempVal, setTempVal] = useState(cls.monthlyFee?.toString() || '0');
+
+  useEffect(() => {
+    setTempVal(cls.monthlyFee?.toString() || '0');
+  }, [cls.monthlyFee]);
+
+  return (
+    <div className="p-3 rounded-xl border bg-card flex flex-col gap-2">
+      <div className="flex justify-between items-center">
+        <Label className="font-bold">{cls.name}</Label>
+        <Badge variant="outline" className="text-[10px]">
+          {levels.find((l: any) => l.id === cls.levelId)?.name}
+        </Badge>
+      </div>
+      <div className="relative">
+        <Input
+          type="number"
+          step="any"
+          value={tempVal}
+          onChange={(e) => setTempVal(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(tempVal);
+            if (!isNaN(v)) updateClass(cls.id, { monthlyFee: v });
+          }}
+          className="pr-12 font-mono"
+        />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold">
+          {currency}
+        </span>
+      </div>
+    </div>
+  );
+}
+

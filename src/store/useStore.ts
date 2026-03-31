@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
 import type {
   Student,
   Class,
@@ -14,11 +13,24 @@ import type {
   TuitionFee,
   SchoolSettings,
   AcademicYear,
-  DashboardStats,
   Cycle,
   CycleType,
+  BulletinTemplate,
 } from '@/types';
 import { MALI_LEVELS } from '@/types';
+
+// Robust UUID generator with fallback
+const uuidv4 = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try {
+      return crypto.randomUUID();
+    } catch (e) {
+      // Fallback if randomUUID fails at runtime
+    }
+  }
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
+};
 
 interface EduFlowState {
   // Data
@@ -40,629 +52,267 @@ interface EduFlowState {
   sidebarCollapsed: boolean;
   darkMode: boolean;
 
-  // Actions - Students
-  addStudent: (student: Omit<Student, 'id' | 'matricule' | 'createdAt' | 'updatedAt'>) => Student;
-  updateStudent: (id: string, student: Partial<Student>) => void;
+  // Actions
+  addStudent: (data: any) => Student;
+  updateStudent: (id: string, data: any) => void;
   deleteStudent: (id: string) => void;
   getStudentsByClass: (classId: string) => Student[];
-
-  // Actions - Classes
-  addClass: (classData: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => Class;
-  updateClass: (id: string, classData: Partial<Class>) => void;
+  addClass: (data: any) => Class;
+  updateClass: (id: string, data: any) => void;
   deleteClass: (id: string) => void;
   getClassesByLevel: (levelId: string) => Class[];
-
-  // Actions - Levels
-  addLevel: (level: Omit<Level, 'id' | 'createdAt'>) => Level;
-  updateLevel: (id: string, level: Partial<Level>) => void;
+  addLevel: (data: any) => Level;
+  updateLevel: (id: string, data: any) => void;
   deleteLevel: (id: string) => void;
   getLevelsByCycle: (cycleType: CycleType) => Level[];
-
-  // Actions - Cycles
   toggleCycleActive: (cycleType: CycleType) => void;
-
-  // Actions - Teachers
-  addTeacher: (teacher: Omit<Teacher, 'id' | 'createdAt' | 'updatedAt'>) => Teacher;
-  updateTeacher: (id: string, teacher: Partial<Teacher>) => void;
+  addTeacher: (data: any) => Teacher;
+  updateTeacher: (id: string, data: any) => void;
   deleteTeacher: (id: string) => void;
-
-  // Actions - Subjects
-  addSubject: (subject: Omit<Subject, 'id' | 'createdAt' | 'updatedAt'>) => Subject;
-  updateSubject: (id: string, subject: Partial<Subject>) => void;
+  addSubject: (data: any) => Subject;
+  updateSubject: (id: string, data: any) => void;
   deleteSubject: (id: string) => void;
-
-  // Actions - Grades
-  addGrade: (grade: Omit<Grade, 'id' | 'createdAt' | 'updatedAt'>) => Grade;
-  updateGrade: (id: string, grade: Partial<Grade>) => void;
+  addGrade: (data: any) => Grade;
+  updateGrade: (id: string, data: any) => void;
   deleteGrade: (id: string) => void;
   getGradesByStudent: (studentId: string, periodId?: string) => Grade[];
   getGradesByClass: (classId: string, periodId?: string) => Grade[];
-
-  // Actions - Periods
-  addPeriod: (period: Omit<Period, 'id' | 'createdAt'>) => Period;
-  updatePeriod: (id: string, period: Partial<Period>) => void;
+  addPeriod: (data: any) => Period;
+  updatePeriod: (id: string, data: any) => void;
   deletePeriod: (id: string) => void;
   setActivePeriod: (id: string) => void;
-
-  // Actions - Payments
-  addPayment: (payment: Omit<Payment, 'id' | 'createdAt'>) => Payment;
-  updatePayment: (id: string, payment: Partial<Payment>) => void;
+  addPayment: (data: any) => Payment;
+  updatePayment: (id: string, data: any) => void;
   deletePayment: (id: string) => void;
   getPaymentsByStudent: (studentId: string) => Payment[];
-
-  // Actions - Expenses
-  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Expense;
-  updateExpense: (id: string, expense: Partial<Expense>) => void;
+  addExpense: (data: any) => Expense;
+  updateExpense: (id: string, data: any) => void;
   deleteExpense: (id: string) => void;
-
-  // Actions - Tuition Fees
-  addTuitionFee: (fee: Omit<TuitionFee, 'id' | 'createdAt'>) => TuitionFee;
-  updateTuitionFee: (id: string, fee: Partial<TuitionFee>) => void;
+  addTuitionFee: (data: any) => TuitionFee;
+  updateTuitionFee: (id: string, data: any) => void;
   deleteTuitionFee: (id: string) => void;
-
-  // Actions - Academic Years
-  addAcademicYear: (year: Omit<AcademicYear, 'id' | 'createdAt'>) => AcademicYear;
-  setActiveAcademicYear: (id: string) => void;
-
-  // Actions - Settings
-  updateSettings: (settings: Partial<SchoolSettings>) => void;
-
-  // Actions - UI
+  addAcademicYear: (data: any) => void;
+  setActiveAcademicYear: (name: string) => void;
+  updateSettings: (data: any) => void;
   toggleSidebar: () => void;
   toggleDarkMode: () => void;
-
-  // Computed
-  getDashboardStats: () => DashboardStats;
-  generateMatricule: () => string;
-
-  // Data Management
   exportData: () => string;
   importData: (jsonData: string) => boolean;
   resetData: () => void;
-}
-
-const generateDefaultData = (): Pick<EduFlowState, 'levels' | 'cycles' | 'academicYears' | 'periods' | 'settings'> => {
-  const now = new Date().toISOString();
-  const currentYear = new Date().getFullYear();
-  const academicYearId = uuidv4();
-  
-  // Générer les niveaux maliens
-  const levels: Level[] = MALI_LEVELS.map((level) => ({
-    ...level,
-    id: uuidv4(),
-    createdAt: now,
-  }));
-
-  // Cycles du système malien
-  const cycles: Cycle[] = [
-    { id: uuidv4(), type: 'jardin', name: 'Jardin d\'enfants / Crèche', order: 1, isActive: true, createdAt: now },
-    { id: uuidv4(), type: 'primaire', name: 'Enseignement Primaire', order: 2, isActive: true, createdAt: now },
-    { id: uuidv4(), type: 'college', name: 'Enseignement Secondaire - Collège', order: 3, isActive: true, createdAt: now },
-    { id: uuidv4(), type: 'lycee', name: 'Enseignement Secondaire - Lycée', order: 4, isActive: true, createdAt: now },
-  ];
-
-  return {
-    levels,
-    cycles,
-    academicYears: [
-      {
-        id: academicYearId,
-        name: `${currentYear}-${currentYear + 1}`,
-        startDate: `${currentYear}-10-01`,
-        endDate: `${currentYear + 1}-06-30`,
-        isActive: true,
-        createdAt: now,
-      },
-    ],
-    periods: [
-      {
-        id: uuidv4(),
-        name: '1er Trimestre',
-        type: 'trimester',
-        startDate: `${currentYear}-10-01`,
-        endDate: `${currentYear}-12-20`,
-        academicYear: `${currentYear}-${currentYear + 1}`,
-        order: 1,
-        isActive: true,
-        createdAt: now,
-      },
-      {
-        id: uuidv4(),
-        name: '2ème Trimestre',
-        type: 'trimester',
-        startDate: `${currentYear + 1}-01-06`,
-        endDate: `${currentYear + 1}-03-31`,
-        academicYear: `${currentYear}-${currentYear + 1}`,
-        order: 2,
-        isActive: false,
-        createdAt: now,
-      },
-      {
-        id: uuidv4(),
-        name: '3ème Trimestre',
-        type: 'trimester',
-        startDate: `${currentYear + 1}-04-01`,
-        endDate: `${currentYear + 1}-06-30`,
-        academicYear: `${currentYear}-${currentYear + 1}`,
-        order: 3,
-        isActive: false,
-        createdAt: now,
-      },
-    ],
-    settings: {
-      id: uuidv4(),
-      schoolName: 'Mon École',
-      address: 'Bamako, Mali',
-      phone: '',
-      email: '',
-      currentAcademicYear: `${currentYear}-${currentYear + 1}`,
-      gradingScale: 'twenty',
-      passingGrade: 10,
-      currency: 'XOF',
-      language: 'fr',
-      activeCycles: ['jardin', 'primaire', 'college', 'lycee'],
-      createdAt: now,
-      updatedAt: now,
-    },
+  getDashboardStats: () => {
+    activeStudents: number;
+    totalPayments: number;
+    totalExpenses: number;
   };
-};
-
-const defaultData = generateDefaultData();
+  generateMatricule: () => string;
+}
 
 export const useStore = create<EduFlowState>()(
   persist(
-    (set, get) => ({
-      // Initial Data
-      students: [],
-      classes: [],
-      levels: defaultData.levels,
-      cycles: defaultData.cycles,
-      teachers: [],
-      subjects: [],
-      grades: [],
-      periods: defaultData.periods,
-      payments: [],
-      expenses: [],
-      tuitionFees: [],
-      academicYears: defaultData.academicYears,
-      settings: defaultData.settings,
-      sidebarCollapsed: false,
-      darkMode: false,
+    (set, get) => {
+      const now = new Date().toISOString();
+      
+      const initialLevels = MALI_LEVELS.map(l => ({ ...l, id: uuidv4(), createdAt: now })) as Level[];
+      const initialCycles = [
+        { id: uuidv4(), type: 'jardin' as CycleType, name: 'Jardin d\'enfants', order: 1, isActive: true, createdAt: now },
+        { id: uuidv4(), type: 'primaire' as CycleType, name: 'Primaire', order: 2, isActive: true, createdAt: now },
+        { id: uuidv4(), type: 'college' as CycleType, name: 'Collège', order: 3, isActive: true, createdAt: now },
+        { id: uuidv4(), type: 'lycee' as CycleType, name: 'Lycée', order: 4, isActive: true, createdAt: now },
+      ];
+      
+      const initialSettings: SchoolSettings = {
+        id: uuidv4(),
+        schoolName: 'EduFlow Pro',
+        address: '',
+        phone: '',
+        email: '',
+        currentAcademicYear: '2023-2024',
+        gradingScale: 'twenty',
+        passingGrade: 10,
+        currency: 'XOF',
+        language: 'fr',
+        activeCycles: ['primaire', 'college', 'lycee'],
+        gradingConfig: {
+          weights: { homework: 1, test: 1, exam: 2, oral: 1, project: 1 },
+          calculationMethod: 'weighted',
+          annualMethod: 'average',
+          annualWeights: [1, 1, 1],
+          roundDecimals: 2,
+          includeAbsenceAsZero: true,
+        },
+        calculationConfig: {
+          mode: 'normalized',
+          weights: { devoir: 1, composition: 2 },
+          normalizeBase: { devoir: 20, composition: 40 },
+        },
+        templates: [],
+        createdAt: now,
+        updatedAt: now,
+      };
 
-      // Students
-      addStudent: (studentData) => {
-        const now = new Date().toISOString();
-        const matricule = get().generateMatricule();
-        const student: Student = {
-          ...studentData,
-          id: uuidv4(),
-          matricule,
-          createdAt: now,
-          updatedAt: now,
-        };
-        set((state) => ({ students: [...state.students, student] }));
-        return student;
-      },
-      updateStudent: (id, studentData) => {
-        set((state) => ({
-          students: state.students.map((s) =>
-            s.id === id ? { ...s, ...studentData, updatedAt: new Date().toISOString() } : s
-          ),
-        }));
-      },
-      deleteStudent: (id) => {
-        set((state) => ({
-          students: state.students.filter((s) => s.id !== id),
-          grades: state.grades.filter((g) => g.studentId !== id),
-          payments: state.payments.filter((p) => p.studentId !== id),
-        }));
-      },
-      getStudentsByClass: (classId) => {
-        return get().students.filter((s) => s.classId === classId);
-      },
+      return {
+        // Initial State
+        students: [],
+        classes: [],
+        levels: initialLevels,
+        cycles: initialCycles,
+        teachers: [],
+        subjects: [],
+        grades: [],
+        periods: [
+          { id: uuidv4(), name: '1er Trimestre', type: 'trimester', startDate: '2023-10-01', endDate: '2023-12-31', order: 1, academicYear: '2023-2024', isActive: true, createdAt: now },
+          { id: uuidv4(), name: '2ème Trimestre', type: 'trimester', startDate: '2024-01-01', endDate: '2024-03-31', order: 2, academicYear: '2023-2024', isActive: false, createdAt: now },
+          { id: uuidv4(), name: '3ème Trimestre', type: 'trimester', startDate: '2024-04-01', endDate: '2024-06-30', order: 3, academicYear: '2023-2024', isActive: false, createdAt: now },
+        ],
+        payments: [],
+        expenses: [],
+        tuitionFees: [],
+        academicYears: [
+          { id: uuidv4(), name: '2023-2024', startDate: '2023-10-01', endDate: '2024-06-30', isActive: true, createdAt: now }
+        ],
+        settings: initialSettings,
+        sidebarCollapsed: false,
+        darkMode: false,
 
-      // Classes
-      addClass: (classData) => {
-        const now = new Date().toISOString();
-        const newClass: Class = {
-          ...classData,
-          id: uuidv4(),
-          createdAt: now,
-          updatedAt: now,
-        };
-        set((state) => ({ classes: [...state.classes, newClass] }));
-        return newClass;
-      },
-      updateClass: (id, classData) => {
-        set((state) => ({
-          classes: state.classes.map((c) =>
-            c.id === id ? { ...c, ...classData, updatedAt: new Date().toISOString() } : c
-          ),
-        }));
-      },
-      deleteClass: (id) => {
-        set((state) => ({ classes: state.classes.filter((c) => c.id !== id) }));
-      },
-      getClassesByLevel: (levelId) => {
-        return get().classes.filter((c) => c.levelId === levelId);
-      },
+        // Actions
+        addStudent: (data) => {
+          const student = { ...data, id: uuidv4(), matricule: `STU-${Date.now().toString(36).toUpperCase()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+          set((s) => ({ students: [...s.students, student] }));
+          return student;
+        },
+        updateStudent: (id, data) => set((s) => ({ students: s.students.map(x => x.id === id ? { ...x, ...data, updatedAt: new Date().toISOString() } : x) })),
+        deleteStudent: (id) => set((s) => ({ students: s.students.filter(x => x.id !== id) })),
+        getStudentsByClass: (classId) => get().students.filter(x => x.classId === classId),
 
-      // Levels
-      addLevel: (levelData) => {
-        const level: Level = {
-          ...levelData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ levels: [...state.levels, level] }));
-        return level;
-      },
-      updateLevel: (id, levelData) => {
-        set((state) => ({
-          levels: state.levels.map((l) => (l.id === id ? { ...l, ...levelData } : l)),
-        }));
-      },
-      deleteLevel: (id) => {
-        set((state) => ({ levels: state.levels.filter((l) => l.id !== id) }));
-      },
-      getLevelsByCycle: (cycleType) => {
-        return get().levels.filter((l) => l.cycleType === cycleType);
-      },
+        addClass: (data) => {
+          const cls = { ...data, id: uuidv4(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+          set((s) => ({ classes: [...s.classes, cls] }));
+          return cls;
+        },
+        updateClass: (id, data) => set((s) => ({ classes: s.classes.map(x => x.id === id ? { ...x, ...data, updatedAt: new Date().toISOString() } : x) })),
+        deleteClass: (id) => set((s) => ({ classes: s.classes.filter(x => x.id !== id) })),
+        getClassesByLevel: (levelId) => get().classes.filter(x => x.levelId === levelId),
 
-      // Cycles
-      toggleCycleActive: (cycleType) => {
-        set((state) => {
-          const currentActive = state.settings.activeCycles;
-          const newActive = currentActive.includes(cycleType)
-            ? currentActive.filter((c) => c !== cycleType)
-            : [...currentActive, cycleType];
-          return {
-            settings: { ...state.settings, activeCycles: newActive, updatedAt: new Date().toISOString() },
-          };
-        });
-      },
+        addLevel: (data) => {
+          const level = { ...data, id: uuidv4(), createdAt: new Date().toISOString() };
+          set((s) => ({ levels: [...s.levels, level] }));
+          return level;
+        },
+        updateLevel: (id, data) => set((s) => ({ levels: s.levels.map(x => x.id === id ? { ...x, ...data } : x) })),
+        deleteLevel: (id) => set((s) => ({ levels: s.levels.filter(x => x.id !== id) })),
+        getLevelsByCycle: (cycleType) => get().levels.filter(x => x.cycleType === cycleType),
 
-      // Teachers
-      addTeacher: (teacherData) => {
-        const now = new Date().toISOString();
-        const teacher: Teacher = {
-          ...teacherData,
-          id: uuidv4(),
-          createdAt: now,
-          updatedAt: now,
-        };
-        set((state) => ({ teachers: [...state.teachers, teacher] }));
-        return teacher;
-      },
-      updateTeacher: (id, teacherData) => {
-        set((state) => ({
-          teachers: state.teachers.map((t) =>
-            t.id === id ? { ...t, ...teacherData, updatedAt: new Date().toISOString() } : t
-          ),
-        }));
-      },
-      deleteTeacher: (id) => {
-        set((state) => ({ teachers: state.teachers.filter((t) => t.id !== id) }));
-      },
-
-      // Subjects
-      addSubject: (subjectData) => {
-        const now = new Date().toISOString();
-        const subject: Subject = {
-          ...subjectData,
-          id: uuidv4(),
-          createdAt: now,
-          updatedAt: now,
-        };
-        set((state) => ({ subjects: [...state.subjects, subject] }));
-        return subject;
-      },
-      updateSubject: (id, subjectData) => {
-        set((state) => ({
-          subjects: state.subjects.map((s) =>
-            s.id === id ? { ...s, ...subjectData, updatedAt: new Date().toISOString() } : s
-          ),
-        }));
-      },
-      deleteSubject: (id) => {
-        set((state) => ({ subjects: state.subjects.filter((s) => s.id !== id) }));
-      },
-
-      // Grades
-      addGrade: (gradeData) => {
-        const now = new Date().toISOString();
-        const grade: Grade = {
-          ...gradeData,
-          id: uuidv4(),
-          createdAt: now,
-          updatedAt: now,
-        };
-        set((state) => ({ grades: [...state.grades, grade] }));
-        return grade;
-      },
-      updateGrade: (id, gradeData) => {
-        set((state) => ({
-          grades: state.grades.map((g) =>
-            g.id === id ? { ...g, ...gradeData, updatedAt: new Date().toISOString() } : g
-          ),
-        }));
-      },
-      deleteGrade: (id) => {
-        set((state) => ({ grades: state.grades.filter((g) => g.id !== id) }));
-      },
-      getGradesByStudent: (studentId, periodId) => {
-        return get().grades.filter(
-          (g) => g.studentId === studentId && (!periodId || g.periodId === periodId)
-        );
-      },
-      getGradesByClass: (classId, periodId) => {
-        const studentIds = get().students.filter((s) => s.classId === classId).map((s) => s.id);
-        return get().grades.filter(
-          (g) => studentIds.includes(g.studentId) && (!periodId || g.periodId === periodId)
-        );
-      },
-
-      // Periods
-      addPeriod: (periodData) => {
-        const period: Period = {
-          ...periodData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ periods: [...state.periods, period] }));
-        return period;
-      },
-      updatePeriod: (id, periodData) => {
-        set((state) => ({
-          periods: state.periods.map((p) => (p.id === id ? { ...p, ...periodData } : p)),
-        }));
-      },
-      deletePeriod: (id) => {
-        set((state) => ({ periods: state.periods.filter((p) => p.id !== id) }));
-      },
-      setActivePeriod: (id) => {
-        set((state) => ({
-          periods: state.periods.map((p) => ({ ...p, isActive: p.id === id })),
-        }));
-      },
-
-      // Payments
-      addPayment: (paymentData) => {
-        const payment: Payment = {
-          ...paymentData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ payments: [...state.payments, payment] }));
-        return payment;
-      },
-      updatePayment: (id, paymentData) => {
-        set((state) => ({
-          payments: state.payments.map((p) => (p.id === id ? { ...p, ...paymentData } : p)),
-        }));
-      },
-      deletePayment: (id) => {
-        set((state) => ({ payments: state.payments.filter((p) => p.id !== id) }));
-      },
-      getPaymentsByStudent: (studentId) => {
-        return get().payments.filter((p) => p.studentId === studentId);
-      },
-
-      // Expenses
-      addExpense: (expenseData) => {
-        const expense: Expense = {
-          ...expenseData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ expenses: [...state.expenses, expense] }));
-        return expense;
-      },
-      updateExpense: (id, expenseData) => {
-        set((state) => ({
-          expenses: state.expenses.map((e) => (e.id === id ? { ...e, ...expenseData } : e)),
-        }));
-      },
-      deleteExpense: (id) => {
-        set((state) => ({ expenses: state.expenses.filter((e) => e.id !== id) }));
-      },
-
-      // Tuition Fees
-      addTuitionFee: (feeData) => {
-        const fee: TuitionFee = {
-          ...feeData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ tuitionFees: [...state.tuitionFees, fee] }));
-        return fee;
-      },
-      updateTuitionFee: (id, feeData) => {
-        set((state) => ({
-          tuitionFees: state.tuitionFees.map((f) => (f.id === id ? { ...f, ...feeData } : f)),
-        }));
-      },
-      deleteTuitionFee: (id) => {
-        set((state) => ({ tuitionFees: state.tuitionFees.filter((f) => f.id !== id) }));
-      },
-
-      // Academic Years
-      addAcademicYear: (yearData) => {
-        const year: AcademicYear = {
-          ...yearData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({ academicYears: [...state.academicYears, year] }));
-        return year;
-      },
-      setActiveAcademicYear: (id) => {
-        const year = get().academicYears.find((y) => y.id === id);
-        if (year) {
-          set((state) => ({
-            academicYears: state.academicYears.map((y) => ({ ...y, isActive: y.id === id })),
-            settings: { ...state.settings, currentAcademicYear: year.name },
-          }));
-        }
-      },
-
-      // Settings
-      updateSettings: (settingsData) => {
-        set((state) => ({
-          settings: { ...state.settings, ...settingsData, updatedAt: new Date().toISOString() },
-        }));
-      },
-
-      // UI
-      toggleSidebar: () => {
-        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
-      },
-      toggleDarkMode: () => {
-        set((state) => {
-          const newDarkMode = !state.darkMode;
-          if (newDarkMode) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
+        toggleCycleActive: (type) => set((s) => ({ 
+          cycles: s.cycles.map(x => x.type === type ? { ...x, isActive: !x.isActive } : x),
+          settings: {
+            ...s.settings,
+            activeCycles: s.settings.activeCycles.includes(type) 
+              ? s.settings.activeCycles.filter(c => c !== type)
+              : [...s.settings.activeCycles, type]
           }
-          return { darkMode: newDarkMode };
-        });
-      },
+        })),
 
-      // Dashboard Stats
-      getDashboardStats: () => {
-        const state = get();
-        const activeStudents = state.students.filter((s) => s.status === 'active').length;
-        
-        // Calcul des revenus réels (paiements)
-        const totalPayments = state.payments.reduce((sum, p) => sum + p.amount, 0);
-        
-        // Calcul des dépenses réelles (expenses)
-        const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
-        
-        // Calcul du revenu mensuel potentiel basé sur les mensualités des classes
-        const monthlyPotentialRevenue = state.classes.reduce((sum, cls) => {
-          const studentCount = state.students.filter(s => s.classId === cls.id && s.status === 'active').length;
-          return sum + (studentCount * (cls.monthlyFee || 0));
-        }, 0);
+        addTeacher: (data) => {
+          const teacher = { ...data, id: uuidv4(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+          set((s) => ({ teachers: [...s.teachers, teacher] }));
+          return teacher;
+        },
+        updateTeacher: (id, data) => set((s) => ({ teachers: s.teachers.map(x => x.id === id ? { ...x, ...data, updatedAt: new Date().toISOString() } : x) })),
+        deleteTeacher: (id) => set((s) => ({ teachers: s.teachers.filter(x => x.id !== id) })),
 
-        // Calcul des dépenses mensuelles fixes (salaires enseignants)
-        const monthlyFixedExpenses = state.teachers
-          .filter(t => t.status === 'active')
-          .reduce((sum, t) => sum + (t.salary || 0), 0);
-        
-        // Calculate average grade
-        const maxGrade = state.settings.gradingScale === 'ten' ? 10 : 20;
-        const allGrades = state.grades.filter((g) => g.value !== undefined);
-        const averageGrade = allGrades.length > 0
-          ? allGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * maxGrade, 0) / allGrades.length
-          : 0;
+        addSubject: (data) => {
+          const subject = { ...data, id: uuidv4(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+          set((s) => ({ subjects: [...s.subjects, subject] }));
+          return subject;
+        },
+        updateSubject: (id, data) => set((s) => ({ subjects: s.subjects.map(x => x.id === id ? { ...x, ...data, updatedAt: new Date().toISOString() } : x) })),
+        deleteSubject: (id) => set((s) => ({ subjects: s.subjects.filter(x => x.id !== id) })),
 
-        return {
-          totalStudents: state.students.length,
-          totalTeachers: state.teachers.length,
-          totalClasses: state.classes.length,
-          activeStudents,
-          totalPayments,
-          totalExpenses,
-          pendingPayments: monthlyPotentialRevenue - totalPayments, // Simplification pour le demo
-          averageGrade: Math.round(averageGrade * 100) / 100,
-        };
-      },
+        addGrade: (data) => {
+          const grade = { ...data, id: uuidv4(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+          set((s) => ({ grades: [...s.grades, grade] }));
+          return grade;
+        },
+        updateGrade: (id, data) => set((s) => ({ grades: s.grades.map(x => x.id === id ? { ...x, ...data, updatedAt: new Date().toISOString() } : x) })),
+        deleteGrade: (id) => set((s) => ({ grades: s.grades.filter(x => x.id !== id) })),
+        getGradesByStudent: (sId, pId) => get().grades.filter(x => x.studentId === sId && (!pId || x.periodId === pId)),
+        getGradesByClass: (cId, pId) => {
+          const sIds = get().students.filter(x => x.classId === cId).map(x => x.id);
+          return get().grades.filter(x => sIds.includes(x.studentId) && (!pId || x.periodId === pId));
+        },
 
-      // Generate Matricule
-      generateMatricule: () => {
-        const state = get();
-        const year = new Date().getFullYear().toString().slice(-2);
-        const count = state.students.length + 1;
-        return `EDU${year}${count.toString().padStart(4, '0')}`;
-      },
+        addPeriod: (data) => {
+          const period = { ...data, id: uuidv4(), createdAt: new Date().toISOString() };
+          set((s) => ({ periods: [...s.periods, period] }));
+          return period;
+        },
+        updatePeriod: (id, data) => set((s) => ({ periods: s.periods.map(x => x.id === id ? { ...x, ...data } : x) })),
+        deletePeriod: (id) => set((s) => ({ periods: s.periods.filter(x => x.id !== id) })),
+        setActivePeriod: (id) => set((s) => ({ periods: s.periods.map(x => ({ ...x, isActive: x.id === id })) })),
 
-      // Data Export/Import
-      exportData: () => {
-        const state = get();
-        const exportData = {
-          students: state.students,
-          classes: state.classes,
-          levels: state.levels,
-          cycles: state.cycles,
-          teachers: state.teachers,
-          subjects: state.subjects,
-          grades: state.grades,
-          periods: state.periods,
-          payments: state.payments,
-          expenses: state.expenses,
-          tuitionFees: state.tuitionFees,
-          academicYears: state.academicYears,
-          settings: state.settings,
-          exportDate: new Date().toISOString(),
-          version: '1.0.0',
-        };
-        return JSON.stringify(exportData, null, 2);
-      },
+        addPayment: (data) => {
+          const p = { ...data, id: uuidv4(), createdAt: new Date().toISOString() };
+          set((s) => ({ payments: [...s.payments, p] }));
+          return p;
+        },
+        updatePayment: (id, data) => set((s) => ({ payments: s.payments.map(x => x.id === id ? { ...x, ...data } : x) })),
+        deletePayment: (id) => set((s) => ({ payments: s.payments.filter(x => x.id !== id) })),
+        getPaymentsByStudent: (sId) => get().payments.filter(x => x.studentId === sId),
 
-      importData: (jsonData) => {
-        try {
-          const data = JSON.parse(jsonData);
-          set({
-            students: data.students || [],
-            classes: data.classes || [],
-            levels: data.levels || defaultData.levels,
-            cycles: data.cycles || defaultData.cycles,
-            teachers: data.teachers || [],
-            subjects: data.subjects || [],
-            grades: data.grades || [],
-            periods: data.periods || defaultData.periods,
-            payments: data.payments || [],
-            expenses: data.expenses || [],
-            tuitionFees: data.tuitionFees || [],
-            academicYears: data.academicYears || defaultData.academicYears,
-            settings: data.settings || defaultData.settings,
-          });
-          return true;
-        } catch {
-          return false;
-        }
-      },
+        addExpense: (data) => {
+          const e = { ...data, id: uuidv4(), createdAt: new Date().toISOString() };
+          set((s) => ({ expenses: [...s.expenses, e] }));
+          return e;
+        },
+        updateExpense: (id, data) => set((s) => ({ expenses: s.expenses.map(x => x.id === id ? { ...x, ...data } : x) })),
+        deleteExpense: (id) => set((s) => ({ expenses: s.expenses.filter(x => x.id !== id) })),
 
-      resetData: () => {
-        const newDefaults = generateDefaultData();
-        set({
-          students: [],
-          classes: [],
-          levels: newDefaults.levels,
-          cycles: newDefaults.cycles,
-          teachers: [],
-          subjects: [],
-          grades: [],
-          periods: newDefaults.periods,
-          payments: [],
-          expenses: [],
-          tuitionFees: [],
-          academicYears: newDefaults.academicYears,
-          settings: newDefaults.settings,
-        });
-      },
-    }),
+        addTuitionFee: (data) => {
+          const f = { ...data, id: uuidv4(), createdAt: new Date().toISOString() };
+          set((s) => ({ tuitionFees: [...s.tuitionFees, f] }));
+          return f;
+        },
+        updateTuitionFee: (id, data) => set((s) => ({ tuitionFees: s.tuitionFees.map(x => x.id === id ? { ...x, ...data } : x) })),
+        deleteTuitionFee: (id) => set((s) => ({ tuitionFees: s.tuitionFees.filter(x => x.id !== id) })),
+
+        addAcademicYear: (data) => set((s) => ({ academicYears: [...s.academicYears, { ...data, id: uuidv4(), createdAt: new Date().toISOString() }] })),
+        setActiveAcademicYear: (name) => set((s) => ({ 
+          academicYears: s.academicYears.map(x => ({ ...x, isActive: x.name === name })),
+          settings: { ...s.settings, currentAcademicYear: name }
+        })),
+
+        updateSettings: (data) => set((s) => ({ settings: { ...s.settings, ...data, updatedAt: new Date().toISOString() } })),
+        toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+        toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
+        exportData: () => JSON.stringify(get(), null, 2),
+        importData: (json) => {
+          try {
+            set(JSON.parse(json));
+            return true;
+          } catch { return false; }
+        },
+        resetData: () => set({ 
+          students: [], classes: [], teachers: [], subjects: [], grades: [], 
+          payments: [], expenses: [], tuitionFees: [] 
+        }),
+        getDashboardStats: () => {
+          const state = get();
+          const activeStudents = state.students.length;
+          const totalPayments = state.payments.reduce((sum, p) => sum + p.amount, 0);
+          const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
+          
+          return {
+            activeStudents,
+            totalPayments,
+            totalExpenses,
+          };
+        },
+        generateMatricule: () => `STU-${Date.now().toString(36).toUpperCase()}`,
+      };
+    },
     {
-      name: 'eduflow-storage',
-      partialize: (state) => ({
-        students: state.students,
-        classes: state.classes,
-        levels: state.levels,
-        cycles: state.cycles,
-        teachers: state.teachers,
-        subjects: state.subjects,
-        grades: state.grades,
-        periods: state.periods,
-        payments: state.payments,
-        expenses: state.expenses,
-        tuitionFees: state.tuitionFees,
-        academicYears: state.academicYears,
-        settings: state.settings,
-        darkMode: state.darkMode,
-        sidebarCollapsed: state.sidebarCollapsed,
-      }),
+      name: 'eduflow-storage-v6', // Bumped for calculationConfig support
+      version: 6,
     }
   )
 );

@@ -322,10 +322,10 @@ export default function Classes() {
               <Input
                 id="capacity"
                 type="number"
-                value={formData.capacity || 50}
-                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 50 })}
+                step="1"
+                value={formData.capacity || ''}
+                onChange={(e) => setFormData({ ...formData, capacity: e.target.value === '' ? 50 : parseInt(e.target.value) })}
                 min={1}
-                max={100}
               />
             </div>
           </div>

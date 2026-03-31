@@ -210,7 +210,13 @@ export default function Teachers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="salary">Salaire Mensuel ({settings.currency})</Label>
-              <Input id="salary" type="number" value={formData.salary || 0} onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) })} />
+              <Input 
+                id="salary" 
+                type="number" 
+                step="any"
+                value={formData.salary || ''} 
+                onChange={(e) => setFormData({ ...formData, salary: e.target.value === '' ? 0 : parseFloat(e.target.value) })} 
+              />
             </div>
           </div>
 

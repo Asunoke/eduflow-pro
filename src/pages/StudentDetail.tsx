@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 import { MainLayout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
@@ -48,17 +49,29 @@ export default function StudentDetail() {
   const studentGrades = grades.filter((g) => g.studentId === student.id);
   const studentPayments = payments.filter((p) => p.studentId === student.id);
   
-  // Calcul Scolarité
+  // Calcul Scolarité (Période malienne standard: Septembre à aujourd'hui)
   const enrollmentDate = new Date(student.enrollmentDate);
   const now = new Date();
-  const monthsEnrolled = Math.max(1, (now.getFullYear() - enrollmentDate.getFullYear()) * 12 + (now.getMonth() - enrollmentDate.getMonth()) + 1);
+  
+  // Déterminer le début de l'année scolaire en cours (Septembre)
+  const schoolStart = new Date(now.getFullYear(), 8, 1); // 8 = Septembre (0-indexed)
+  if (now.getMonth() < 8) schoolStart.setFullYear(now.getFullYear() - 1);
+  
+  // Utiliser la date la plus tardive entre le début d'école et l'inscription
+  const startDate = enrollmentDate > schoolStart ? enrollmentDate : schoolStart;
+  
+  const monthsEnrolled = Math.max(1, (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth()) + 1);
   const totalDue = (studentClass?.monthlyFee || 0) * monthsEnrolled;
   const totalPaid = studentPayments.reduce((sum, p) => sum + p.amount, 0);
   const balance = totalDue - totalPaid;
 
-  const avgGrade = studentGrades.length > 0
-    ? (studentGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * 20, 0) / studentGrades.length).toFixed(2)
-    : '-';
+  const avgGradeValue = studentGrades.length > 0
+    ? (studentGrades.reduce((sum, g) => sum + (g.value / g.maxValue) * 20, 0) / studentGrades.length)
+    : 0;
+
+  const avgGrade = studentGrades.length > 0 ? avgGradeValue.toFixed(2) : '-';
+  const performanceScore = avgGradeValue * 5; 
+  const ratingStars = avgGradeValue / 4; 
 
   const statusLabel = STUDENT_STATUS[student.status];
   const initials = `${student.firstName[0]}${student.lastName[0]}`.toUpperCase();
@@ -69,7 +82,7 @@ export default function StudentDetail() {
       items: [
         { label: "Genre", value: student.gender === 'M' ? 'Masculin' : 'Féminin' },
         { label: "Date de naissance", value: student.dateOfBirth || '-' },
-        { label: "N° Matricule", value: <span className="font-mono text-primary">{student.matricule}</span> },
+        { label: "N° Matricule", value: <span className="font-mono text-primary font-bold">{student.matricule}</span> },
         { label: "Statut", value: <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>{statusLabel}</Badge> },
       ]
     },
@@ -79,29 +92,35 @@ export default function StudentDetail() {
         { label: "Classe", value: studentClass?.name || '-' },
         { label: "Niveau", value: level?.name || '-' },
         { label: "Cycle", value: cycle?.name || '-' },
-        { label: "Moyenne Générale", value: <span className="text-primary font-bold">{avgGrade}/20</span> },
+        { label: "Moyenne Générale", value: <span className="text-primary font-black text-lg">{avgGrade}/20</span> },
       ]
     },
     {
-      title: "Parent / Tuteur",
+      title: "Détails du Tuteur",
       items: [
-        { label: "Nom complet", value: student.parentName || '-' },
-        { label: "Téléphone", value: student.parentPhone || '-' },
-        { label: "Email", value: student.parentEmail || '-' },
-        { label: "Adresse", value: student.address || '-' },
+        { label: "Tuteur Légal", value: <span className="font-bold text-slate-900 dark:text-white uppercase">{student.parentName || '-'}</span> },
+        { label: "Téléphone", value: <span className="font-medium">{student.parentPhone || '-'}</span> },
+        { label: "Email Contact", value: student.parentEmail || 'Non renseigné' },
+        { label: "Adresse Résidence", value: student.address || 'Bamako, Mali' },
       ]
     },
     {
-      title: "État des Paiements",
+      title: "Situation Financière",
       items: [
         { label: "Scolarité Mensuelle", value: `${(studentClass?.monthlyFee || 0).toLocaleString()} ${settings.currency}` },
-        { label: "Total Dû (Cumul)", value: `${totalDue.toLocaleString()} ${settings.currency}` },
-        { label: "Total Réglé", value: <span className="text-success font-bold">{totalPaid.toLocaleString()} {settings.currency}</span> },
+        { label: "Cumul dû (Saison)", value: `${totalDue.toLocaleString()} ${settings.currency}` },
+        { label: "Total Réglé", value: <span className="text-emerald-600 dark:text-emerald-400 font-black">{totalPaid.toLocaleString()} {settings.currency}</span> },
         { label: "Reste à payer", value: (
-          <span className={balance > 0 ? "text-destructive font-bold animate-pulse" : "text-success font-bold"}>
-            {balance.toLocaleString()} {settings.currency}
-            {balance > 0 ? <AlertTriangle className="h-3 w-3 inline ml-1" /> : <CheckCircle2 className="h-3 w-3 inline ml-1" />}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "font-black text-lg",
+              balance > 0 ? "text-destructive animate-pulse" : "text-emerald-600 dark:text-emerald-400"
+            )}>
+              {balance <= 0 ? (balance === 0 ? "0" : `+ ${Math.abs(balance).toLocaleString()}`) : balance.toLocaleString()} {settings.currency}
+            </span>
+            {balance > 0 ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            {balance < 0 && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold uppercase">Surplus</span>}
+          </div>
         )},
       ]
     }
@@ -239,6 +258,11 @@ export default function StudentDetail() {
         initials={initials}
         name={`${student.lastName} ${student.firstName}`}
         photo={student.photo}
+        rating={ratingStars}
+        trustScore={performanceScore}
+        numGrades={studentGrades.length}
+        scoreLabel="Performances"
+        showRating={true}
         infoGroups={infoGroups}
         tabs={tabs}
       />

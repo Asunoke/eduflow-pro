@@ -30,6 +30,8 @@ const navigation = [
   { name: 'Rapports', href: '/reports', icon: FileText },
 ];
 
+import logo from '@/assets/logo.jpg';
+
 export function AppSidebar() {
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar, darkMode, toggleDarkMode, settings } = useStore();
@@ -42,25 +44,43 @@ export function AppSidebar() {
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-16 px-4">
+      {/* Header */}
+      <div className={cn("flex items-center transition-all duration-300 h-16", sidebarCollapsed ? "justify-center px-2" : "justify-between px-4")}>
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
             <span className="font-bold text-slate-800 dark:text-white tracking-tight">
               EduFlow
             </span>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          className="text-slate-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 shrink-0"
-        >
-          {sidebarCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
-        </Button>
+
+        {sidebarCollapsed ? (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                className="text-slate-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 shrink-0"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="font-medium bg-slate-900 text-white border-none">
+              Ouvrir le menu
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="text-slate-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 shrink-0"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       {/* Navigation */}

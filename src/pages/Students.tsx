@@ -19,10 +19,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Users, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, Users, Pencil, Trash2, Eye, Calendar as CalendarIcon } from 'lucide-react';
 import type { Student } from '@/types';
 import { STUDENT_STATUS } from '@/types';
 import { toast } from 'sonner';
+import { DatePicker } from '@/components/ui/date-picker';
+import { parseISO, formatISO } from 'date-fns';
 
 export default function Students() {
   const { students, classes, levels, addStudent, updateStudent, deleteStudent, generateMatricule } = useStore();
@@ -285,8 +287,20 @@ export default function Students() {
               <Input id="firstName" value={formData.firstName || ''} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Prénom" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dateOfBirth">Date de naissance</Label>
-              <Input id="dateOfBirth" type="date" value={formData.dateOfBirth || ''} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} />
+              <Label>Date de naissance</Label>
+              <DatePicker 
+                date={formData.dateOfBirth ? parseISO(formData.dateOfBirth) : undefined} 
+                onChange={(date) => setFormData({ ...formData, dateOfBirth: date ? formatISO(date, { representation: 'date' }) : '' })} 
+                placeholder="Sélectionner la date de naissance"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date d'inscription</Label>
+              <DatePicker 
+                date={formData.enrollmentDate ? parseISO(formData.enrollmentDate) : undefined} 
+                onChange={(date) => setFormData({ ...formData, enrollmentDate: date ? formatISO(date, { representation: 'date' }) : '' })} 
+                placeholder="Sélectionner la date d'inscription"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="gender">Genre</Label>
@@ -328,6 +342,10 @@ export default function Students() {
             <div className="space-y-2">
               <Label htmlFor="parentPhone">Téléphone parent *</Label>
               <Input id="parentPhone" value={formData.parentPhone || ''} onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="+223 XX XX XX XX" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="parentEmail">Email du parent</Label>
+              <Input id="parentEmail" type="email" value={formData.parentEmail || ''} onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })} placeholder="Email (optionnel)" />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="address">Adresse</Label>
