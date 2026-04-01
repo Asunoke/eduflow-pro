@@ -10,6 +10,7 @@ interface DraggableBlockProps {
   block: TemplateBlock;
   isSelected: boolean;
   onClick: () => void;
+  onDelete?: () => void;
   isPreview?: boolean;
 }
 
@@ -28,6 +29,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   block, 
   isSelected, 
   onClick,
+  onDelete,
   isPreview = false
 }) => {
   const {
@@ -176,7 +178,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
             className="h-8 w-8 rounded-full shadow-lg"
             onClick={(e) => {
               e.stopPropagation();
-              // logic handled in parent but keeping for visual completeness if needed
+              onDelete?.();
             }}
           >
             <Trash2 className="h-4 w-4" />

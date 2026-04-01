@@ -198,13 +198,20 @@ export interface TemplateBlock {
     backgroundColor?: string;
     textAlign?: 'left' | 'center' | 'right';
     textDecoration?: string;
-    padding?: number;
-    margin?: number;
-    borderRadius?: number;
+    textTransform?: string;
+    fontStyle?: string;
+    padding?: number | string;
+    margin?: number | string;
+    borderRadius?: number | string;
     border?: string;
+    borderTop?: string;
+    borderBottom?: string;
+    borderLeft?: string;
+    borderRight?: string;
     width?: string;
     height?: string;
     flex?: number;
+    [key: string]: string | number | undefined;
   };
   children?: TemplateBlock[];
   columns?: number; // Pour le type 'grid'

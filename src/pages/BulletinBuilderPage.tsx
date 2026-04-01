@@ -33,12 +33,15 @@ import {
   Eye,
   Trash2,
   Lock,
-  Minus
+  Minus,
+  LayoutTemplate
 } from 'lucide-react';
 
+import { getDefaultTemplates } from '@/lib/templateFactory';
 import { useStore } from '@/store/useStore';
 import { useBuilderStore } from '@/store/useBuilderStore';
 import { Button as UIButton } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -103,7 +106,10 @@ export default function BulletinBuilderPage() {
   } = useBuilderStore();
 
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(0.85);
   const [activeSidebarItem, setActiveSidebarItem] = useState<any>(null);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const defaultTemplates = getDefaultTemplates();
 
   useEffect(() => {
     if (id) {
@@ -117,10 +123,26 @@ export default function BulletinBuilderPage() {
   const handleSave = () => {
     if (!template) return;
     
-    const newTemplates = settings.templates.map(t => t.id === template.id ? template : t);
-    // If it's a new template, we'd add it, but here we assume it exists in settings
+    const exists = settings.templates.some(t => t.id === template.id);
+    let newTemplates = [];
+    if (exists) {
+       newTemplates = settings.templates.map(t => t.id === template.id ? template : t);
+    } else {
+       newTemplates = [...settings.templates, template];
+    }
+
     updateSettings({ templates: newTemplates });
     toast.success('Template enregistré avec succès');
+  };
+
+  const handleApplyTemplate = (sourceTemplate: any) => {
+    if (!template) return;
+    setTemplate({
+      ...template,
+      layout: [...sourceTemplate.layout]
+    });
+    setIsGalleryOpen(false);
+    toast.success(`Modèle ${sourceTemplate.name} appliqué !`);
   };
 
   const sensors = useSensors(
@@ -183,6 +205,48 @@ export default function BulletinBuilderPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+            <DialogTrigger asChild>
+              <UIButton variant="ghost" className="text-primary hover:bg-primary/10">
+                <LayoutTemplate className="h-4 w-4 mr-2" />
+                Galerie de Modèles
+              </UIButton>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Galerie de Modèles</DialogTitle>
+                <DialogDescription>
+                  Sélectionnez un modèle de base. Attention, cela remplacera votre mise en page actuelle.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                {defaultTemplates.map((t) => (
+                  <Card key={t.id} className="cursor-pointer hover:border-primary transition-all group" onClick={() => handleApplyTemplate(t)}>
+                    <CardContent className="p-4 flex flex-col h-full">
+                      <div className="flex-1 min-h-[100px] bg-slate-50 border rounded-lg mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-slate-100">
+                        <LayoutTemplate className="h-8 w-8 text-slate-300 group-hover:text-primary transition-colors" />
+                      </div>
+                      <h4 className="font-bold text-base">{t.name}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{t.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <div className="flex items-center bg-muted rounded-md p-0.5">
+            <UIButton variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.max(0.4, z - 0.1))}>
+              <Minus className="h-3 w-3" />
+            </UIButton>
+            <span className="text-xs font-medium w-10 text-center">{Math.round(zoomLevel * 100)}%</span>
+            <UIButton variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoomLevel(z => Math.min(1.5, z + 0.1))}>
+              <Plus className="h-3 w-3" />
+            </UIButton>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 mx-2" />
+          
           <UIButton variant="outline" size="icon" onClick={undo} title="Undo">
             <Undo className="h-4 w-4" />
           </UIButton>
@@ -226,14 +290,16 @@ export default function BulletinBuilderPage() {
         )}
 
         {/* Main Canvas */}
-        <main className="flex-1 overflow-auto p-12 flex justify-center bg-gray-100/50">
+        <main className="flex-1 overflow-auto p-12 flex justify-center items-start bg-slate-100 dark:bg-slate-900 custom-scrollbar relative">
           <div 
-            className="bg-white shadow-2xl origin-top"
+            className="bg-white shadow-2xl origin-top transition-transform duration-200"
             style={{ 
               width: '210mm', 
               minHeight: '297mm', 
               padding: '20mm',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              transform: `scale(${zoomLevel})`,
+              marginBottom: `${(zoomLevel - 1) * 297}mm`
             }}
           >
               <SortableContext 
@@ -247,6 +313,7 @@ export default function BulletinBuilderPage() {
                       block={block} 
                       isSelected={selectedBlockId === block.id}
                       onClick={() => selectBlock(block.id)}
+                      onDelete={() => removeBlock(block.id)}
                       isPreview={isPreviewMode}
                     />
                   ))}
