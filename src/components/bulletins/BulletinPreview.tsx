@@ -96,7 +96,7 @@ export function BulletinPreview({ isOpen, onOpenChange, bulletins, periodName }:
   };
 
   const handlePrint = () => {
-     window.print();
+    window.print();
   };
 
   const openBuilder = () => {
@@ -176,11 +176,13 @@ export function BulletinPreview({ isOpen, onOpenChange, bulletins, periodName }:
         <div className="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-950 p-4 md:p-10 custom-scrollbar">
           <div className="flex justify-center pb-20">
             {selectedTemplate && (
-              <TemplateRenderer 
-                template={selectedTemplate} 
-                data={currentBulletin} 
-                settings={settings} 
-              />
+              <div className="bulletin-sheet-print">
+                <TemplateRenderer 
+                  template={selectedTemplate} 
+                  data={currentBulletin} 
+                  settings={settings} 
+                />
+              </div>
             )}
           </div>
         </div>
