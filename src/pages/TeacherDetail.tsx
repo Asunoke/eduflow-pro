@@ -36,7 +36,7 @@ import { exportTeacherPayslip } from '@/lib/exportUtils';
 export default function TeacherDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { teachers, subjects, classes, levels, students, settings, updateTeacher } = useStore();
+  const { teachers, subjects, classes, levels, students, settings, updateTeacher, updateSubject } = useStore();
 
   const teacher = teachers.find((t) => t.id === id);
   const [isEditingSalary, setIsEditingSalary] = useState(false);
@@ -79,11 +79,19 @@ export default function TeacherDetail() {
   const handleAssignSubject = (subjectId: string) => {
     if (teacher.subjectIds.includes(subjectId)) return;
     updateTeacher(teacher.id, { subjectIds: [...teacher.subjectIds, subjectId] });
+    const subject = subjects.find(s => s.id === subjectId);
+    if (subject && !subject.teacherIds.includes(teacher.id)) {
+      updateSubject(subjectId, { teacherIds: [...subject.teacherIds, teacher.id] });
+    }
     toast.success('Matière assignée');
   };
 
   const handleRemoveSubject = (subjectId: string) => {
     updateTeacher(teacher.id, { subjectIds: teacher.subjectIds.filter(id => id !== subjectId) });
+    const subject = subjects.find(s => s.id === subjectId);
+    if (subject) {
+      updateSubject(subjectId, { teacherIds: subject.teacherIds.filter(id => id !== teacher.id) });
+    }
     toast.success('Matière retirée');
   };
 
