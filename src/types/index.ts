@@ -254,6 +254,8 @@ export interface BulletinData {
     homeworkAverage: number;
     examAverage: number;
     average: number; // Moyenne de la matière pondérée
+    classAverage?: number;
+    teacherName?: string;
     rank?: number;
   }[];
   overallAverage: number;

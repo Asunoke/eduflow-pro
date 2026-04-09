@@ -292,11 +292,156 @@ export const createElegantTemplate = (id: string, isDefault: boolean = false): B
   ]
 });
 
+export const createMaliCompositionTrimestreTemplate = (id: string, isDefault: boolean = false): BulletinTemplate => ({
+  id,
+  name: "Composition du 1er Trimestre (Mali)",
+  description: "Format local avec composition x2, moyenne matière et total coefficient.",
+  isDefault,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  layout: [
+    { id: generateId(), type: "text", content: "COMPOSITION DU PREMIER TRIMESTRE", style: { textAlign: "center", fontSize: 20, fontWeight: "bold", textTransform: "uppercase" } },
+    { id: generateId(), type: "text", content: "Nombre d'absences : ............", style: { textAlign: "center", fontSize: 12, margin: "0 0 8px 0" } },
+    {
+      id: generateId(),
+      type: "grid",
+      columns: 2,
+      style: { border: "1px solid #000", padding: 10, margin: "0 0 10px 0" },
+      children: [
+        {
+          id: generateId(),
+          type: "container",
+          children: [
+            { id: generateId(), type: "text", content: "Élève : {{student.lastName}} {{student.firstName}}", style: { fontWeight: "bold" } },
+            { id: generateId(), type: "text", content: "Classe : {{class.name}}" },
+            { id: generateId(), type: "text", content: "Sexe : {{student.gender}}" }
+          ]
+        },
+        {
+          id: generateId(),
+          type: "container",
+          children: [
+            { id: generateId(), type: "text", content: "Année scolaire : {{school.currentAcademicYear}}", style: { textAlign: "right" } },
+            { id: generateId(), type: "text", content: "Effectif : {{bulletin.totalStudents}}", style: { textAlign: "right" } },
+            { id: generateId(), type: "text", content: "Période : {{period.name}}", style: { textAlign: "right" } }
+          ]
+        }
+      ]
+    },
+    {
+      id: generateId(),
+      type: "table",
+      source: "grades",
+      config: { columns: ["subject", "coefficient", "homework", "exam", "average", "weighted", "teacher"] },
+      style: { backgroundColor: "#ffffff", color: "#000000", margin: "0 0 14px 0", border: "1px solid #000" }
+    },
+    {
+      id: generateId(),
+      type: "container",
+      style: { border: "1px solid #000", padding: 10, margin: "0 0 14px 0" },
+      children: [
+        {
+          id: generateId(),
+          type: "grid",
+          columns: 3,
+          children: [
+            { id: generateId(), type: "text", content: "Total points : {{bulletin.totalWeightedPoints}}", style: { fontWeight: "bold" } },
+            { id: generateId(), type: "text", content: "Rang : {{bulletin.classRank}} / {{bulletin.totalStudents}}", style: { fontWeight: "bold", textAlign: "center" } },
+            { id: generateId(), type: "text", content: "Moyenne obtenue : {{bulletin.overallAverage}} / 20 (Coef: {{bulletin.totalCoefficients}})", style: { fontWeight: "bold", textAlign: "right" } }
+          ]
+        }
+      ]
+    },
+    {
+      id: generateId(),
+      type: "grid",
+      columns: 2,
+      style: { margin: "28px 0 0 0" },
+      children: [
+        { id: generateId(), type: "signature", content: "Le Directeur", style: { textAlign: "center" } },
+        { id: generateId(), type: "signature", content: "Les Parents", style: { textAlign: "center" } }
+      ]
+    }
+  ]
+});
+
+export const createMaliPremierePeriodeTemplate = (id: string, isDefault: boolean = false): BulletinTemplate => ({
+  id,
+  name: "Bulletin 1ère Période (Mali)",
+  description: "Format bulletin première période avec moyennes par matière et appréciations.",
+  isDefault,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  layout: [
+    { id: generateId(), type: "text", content: "REPUBLIQUE DU MALI", style: { textAlign: "center", fontSize: 13, fontWeight: "bold" } },
+    { id: generateId(), type: "text", content: "Un peuple - Un but - Une foi", style: { textAlign: "center", fontSize: 11, margin: "0 0 4px 0" } },
+    { id: generateId(), type: "text", content: "{{school.schoolName}}", style: { textAlign: "center", fontSize: 15, fontWeight: "bold", textTransform: "uppercase" } },
+    { id: generateId(), type: "text", content: "BULLETIN DE LA PREMIERE PERIODE", style: { textAlign: "center", fontSize: 18, fontWeight: "bold", textTransform: "uppercase", margin: "0 0 10px 0" } },
+    {
+      id: generateId(),
+      type: "grid",
+      columns: 2,
+      style: { border: "1px solid #000", padding: 10, margin: "0 0 10px 0" },
+      children: [
+        {
+          id: generateId(),
+          type: "container",
+          children: [
+            { id: generateId(), type: "text", content: "Prénom(s) : {{student.firstName}}" },
+            { id: generateId(), type: "text", content: "Nom : {{student.lastName}}", style: { fontWeight: "bold" } },
+            { id: generateId(), type: "text", content: "Sexe : {{student.gender}}" }
+          ]
+        },
+        {
+          id: generateId(),
+          type: "container",
+          children: [
+            { id: generateId(), type: "text", content: "Classe : {{class.name}}", style: { textAlign: "right" } },
+            { id: generateId(), type: "text", content: "Eff : {{bulletin.totalStudents}}", style: { textAlign: "right" } },
+            { id: generateId(), type: "text", content: "Année scolaire : {{school.currentAcademicYear}}", style: { textAlign: "right" } }
+          ]
+        }
+      ]
+    },
+    {
+      id: generateId(),
+      type: "table",
+      source: "grades",
+      config: { columns: ["subject", "coefficient", "classAverage", "exam", "average", "weighted", "appreciation"] },
+      style: { backgroundColor: "#ffffff", color: "#000000", margin: "0 0 14px 0", border: "1px solid #000" }
+    },
+    {
+      id: generateId(),
+      type: "container",
+      style: { border: "1px solid #000", padding: 10, margin: "0 0 14px 0" },
+      children: [
+        {
+          id: generateId(),
+          type: "grid",
+          columns: 2,
+          children: [
+            { id: generateId(), type: "text", content: "Moyenne obtenue : {{bulletin.overallAverage}} / 20", style: { fontWeight: "bold" } },
+            { id: generateId(), type: "text", content: "Rang : {{bulletin.classRank}} sur {{bulletin.totalStudents}} élèves", style: { fontWeight: "bold", textAlign: "right" } }
+          ]
+        }
+      ]
+    },
+    {
+      id: generateId(),
+      type: "grid",
+      columns: 2,
+      style: { margin: "28px 0 0 0" },
+      children: [
+        { id: generateId(), type: "signature", content: "Le Censeur", style: { textAlign: "center" } },
+        { id: generateId(), type: "signature", content: "Visa des parents", style: { textAlign: "center" } }
+      ]
+    }
+  ]
+});
+
 export const getDefaultTemplates = (): BulletinTemplate[] => {
   return [
-    createStandardTemplate("default-standard", true),
-    createMinimalistTemplate("default-minimalist", false),
-    createOfficialMENTemplate("default-men", false),
-    createElegantTemplate("default-elegant", false)
+    createMaliCompositionTrimestreTemplate("default-mali-composition", true),
+    createMaliPremierePeriodeTemplate("default-mali-premiere-periode", false)
   ];
 };

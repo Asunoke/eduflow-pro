@@ -141,7 +141,7 @@ export const useStore = create<EduFlowState>()(
           includeAbsenceAsZero: true,
         },
         calculationConfig: {
-          mode: 'normalized',
+          mode: 'direct',
           weights: { devoir: 1, composition: 2 },
           normalizeBase: { devoir: 20, composition: 40 },
         },

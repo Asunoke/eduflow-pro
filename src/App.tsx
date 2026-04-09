@@ -28,11 +28,15 @@ const App = () => {
   const updateSettings = useStore((state) => state.updateSettings);
 
   useEffect(() => {
-    // Inject default templates if none exists
-    if (!settings.templates || settings.templates.length === 0 || !settings.templates.some(t => t.id.startsWith("default-"))) {
+    // Inject Mali default templates if missing
+    const hasMaliComposition = settings.templates?.some(t => t.id === "default-mali-composition");
+    const hasMaliPremierePeriode = settings.templates?.some(t => t.id === "default-mali-premiere-periode");
+
+    if (!hasMaliComposition || !hasMaliPremierePeriode) {
       import('@/lib/templateFactory').then(({ getDefaultTemplates }) => {
+        const customTemplates = (settings.templates || []).filter(t => !t.id.startsWith("default-"));
         updateSettings({
-          templates: getDefaultTemplates()
+          templates: [...getDefaultTemplates(), ...customTemplates]
         });
       });
     }

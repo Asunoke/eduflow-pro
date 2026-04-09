@@ -33,6 +33,14 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
     if (rawPath === 'student.gender') {
       return data.student.gender === 'M' ? 'Masculin' : 'Féminin';
     }
+    if (rawPath === 'bulletin.totalCoefficients') {
+      const totalCoefficients = data.grades.reduce((sum, g) => sum + (g.subject.coefficient || 0), 0);
+      return totalCoefficients.toString();
+    }
+    if (rawPath === 'bulletin.totalWeightedPoints') {
+      const totalWeightedPoints = data.grades.reduce((sum, g) => sum + (g.average * (g.subject.coefficient || 0)), 0);
+      return totalWeightedPoints.toFixed(settings.gradingConfig.roundDecimals);
+    }
     
     const keys = rawPath.split('.');
     let current: any = {
@@ -146,31 +154,68 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
           const colsC = block.config?.columns || ['subject', 'coefficient', 'homework', 'exam', 'average', 'rank', 'appreciation'];
           const headerBg = block.style?.backgroundColor || '#f1f5f9';
           const headerColor = block.style?.color || 'inherit';
+          const decimals = settings.gradingConfig.roundDecimals;
+
+          const labelMap: Record<string, string> = {
+            subject: 'Matières',
+            coefficient: 'Coef',
+            homework: 'Note Classe',
+            exam: 'Comp x2',
+            average: 'Moy/Gle',
+            weighted: 'Moy/Coeff',
+            classAverage: 'Moy. Classe',
+            rank: 'Rang',
+            appreciation: 'Appréciation',
+            teacher: 'Prof',
+          };
+
+          const renderCell = (grade: BulletinData['grades'][number], col: string): React.ReactNode => {
+            switch (col) {
+              case 'subject':
+                return <TableCell className="font-medium border-r last:border-r-0">{grade.subject.name}</TableCell>;
+              case 'coefficient':
+                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.subject.coefficient}</TableCell>;
+              case 'homework':
+                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.homeworkAverage.toFixed(decimals)}</TableCell>;
+              case 'exam':
+                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{(grade.examAverage * 2).toFixed(decimals)}</TableCell>;
+              case 'average':
+                return <TableCell className="text-center font-bold border-r last:border-r-0">{grade.average.toFixed(decimals)}</TableCell>;
+              case 'weighted':
+                return <TableCell className="text-center border-r last:border-r-0">{(grade.average * grade.subject.coefficient).toFixed(decimals)}</TableCell>;
+              case 'classAverage':
+                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{(grade.classAverage ?? 0).toFixed(decimals)}</TableCell>;
+              case 'rank':
+                return <TableCell className="text-center border-r last:border-r-0">{grade.rank || '-'}</TableCell>;
+              case 'teacher':
+                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.teacherName || '-'}</TableCell>;
+              case 'appreciation':
+                return <TableCell className="text-sm italic border-r last:border-r-0 text-muted-foreground pt-3">{grade.grades[0]?.comment || (grade.average >= 16 ? 'Très Bien' : grade.average >= 14 ? 'Bien' : grade.average >= 12 ? 'Assez Bien' : grade.average >= 10 ? 'Passable' : 'Insuffisant')}</TableCell>;
+              default:
+                return null;
+            }
+          };
 
           return (
             <div key={block.id} className="overflow-hidden border rounded-lg" style={{ ...baseStyle, backgroundColor: 'transparent', color: 'inherit' }}>
               <Table>
                 <TableHeader style={{ backgroundColor: headerBg }}>
                   <TableRow className="hover:bg-transparent border-b-0">
-                    {colsC.includes('subject') && <TableHead className="font-bold border-r last:border-r-0" style={{ color: headerColor }}>Matières</TableHead>}
-                    {colsC.includes('homework') && <TableHead className="text-center font-bold border-r last:border-r-0 w-24" style={{ color: headerColor }}>Détail Devoirs</TableHead>}
-                    {colsC.includes('exam') && <TableHead className="text-center font-bold border-r last:border-r-0 w-24" style={{ color: headerColor }}>Détail Compo</TableHead>}
-                    {colsC.includes('coefficient') && <TableHead className="text-center font-bold border-r last:border-r-0 w-16" style={{ color: headerColor }}>Coef</TableHead>}
-                    {colsC.includes('average') && <TableHead className="text-center font-bold border-r last:border-r-0 w-28" style={{ color: headerColor }}>Moy. Pondérée</TableHead>}
-                    {colsC.includes('rank') && <TableHead className="text-center font-bold border-r last:border-r-0 w-24" style={{ color: headerColor }}>Rang</TableHead>}
-                    {colsC.includes('appreciation') && <TableHead className="font-bold border-r last:border-r-0" style={{ color: headerColor }}>Appréciation</TableHead>}
+                    {colsC.map((col: string) => (
+                      <TableHead key={col} className="text-center font-bold border-r last:border-r-0" style={{ color: headerColor }}>
+                        {labelMap[col] || col}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.grades.map((grade, idx) => (
                     <TableRow key={idx} className="hover:bg-transparent">
-                      {colsC.includes('subject') && <TableCell className="font-medium border-r last:border-r-0">{grade.subject.name}</TableCell>}
-                      {colsC.includes('homework') && <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.homeworkAverage.toFixed(settings.gradingConfig.roundDecimals)}</TableCell>}
-                      {colsC.includes('exam') && <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.examAverage.toFixed(settings.gradingConfig.roundDecimals)}</TableCell>}
-                      {colsC.includes('coefficient') && <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.subject.coefficient}</TableCell>}
-                      {colsC.includes('average') && <TableCell className="text-center font-bold border-r last:border-r-0">{grade.average.toFixed(settings.gradingConfig.roundDecimals)}</TableCell>}
-                      {colsC.includes('rank') && <TableCell className="text-center border-r last:border-r-0">{grade.rank || '-'}</TableCell>}
-                      {colsC.includes('appreciation') && <TableCell className="text-sm italic border-r last:border-r-0 text-muted-foreground pt-3">{grade.grades[0]?.comment || (grade.average >= 16 ? 'Très Bien' : grade.average >= 14 ? 'Bien' : grade.average >= 12 ? 'Assez Bien' : grade.average >= 10 ? 'Passable' : 'Insuffisant')}</TableCell>}
+                      {colsC.map((col: string) => (
+                        <React.Fragment key={`${col}-${idx}`}>
+                          {renderCell(grade, col)}
+                        </React.Fragment>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>

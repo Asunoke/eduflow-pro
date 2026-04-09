@@ -49,6 +49,7 @@ export default function Grades() {
     students, 
     classes, 
     levels, 
+    teachers,
     subjects, 
     grades, 
     periods,
@@ -108,6 +109,26 @@ export default function Grades() {
     const level = levels.find(l => l.id === cls.levelId);
     if (!level) return;
 
+    const classSubjectAverages: Record<string, number> = {};
+    levelSubjects.forEach((subject) => {
+      const perStudentAverages = classStudents.map((s) => {
+        const g = getStudentGrades(s.id, subject.id, selectedPeriod);
+        return gradingService.calculateSubjectAverage(g, settings.gradingConfig, settings.calculationConfig).totalAvg;
+      });
+      const avg = perStudentAverages.length
+        ? perStudentAverages.reduce((sum, v) => sum + v, 0) / perStudentAverages.length
+        : 0;
+      classSubjectAverages[subject.id] = gradingService.round(avg, settings.gradingConfig.roundDecimals);
+    });
+
+    const teacherNameBySubject: Record<string, string> = {};
+    levelSubjects.forEach((subject) => {
+      const assigned = teachers.filter((t) => subject.teacherIds?.includes(t.id));
+      teacherNameBySubject[subject.id] = assigned.length
+        ? assigned.map((t) => `${t.lastName}`).join(', ')
+        : '-';
+    });
+
     const studentBulletinData = classStudents.map(student => {
       const studentGrades = levelSubjects.map(subject => {
         const subGrades = getStudentGrades(student.id, subject.id, selectedPeriod);
@@ -119,6 +140,8 @@ export default function Grades() {
           homeworkAverage: results.homeworkAvg,
           examAverage: results.examAvg,
           average: results.totalAvg,
+          classAverage: classSubjectAverages[subject.id] ?? 0,
+          teacherName: teacherNameBySubject[subject.id] || '-',
         };
       });
 
