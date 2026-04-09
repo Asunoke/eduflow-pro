@@ -144,7 +144,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
             <div className="font-bold border-b-2 border-dotted border-gray-300 pb-2">
               {renderContent(block.content)}
             </div>
-            <div className="italic text-xs text-muted-foreground">(Signature et Cachet)</div>
+            <div className="italic text-xs text-slate-600">(Signature et Cachet)</div>
           </div>
         );
 
@@ -174,23 +174,23 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
               case 'subject':
                 return <TableCell className="font-medium border-r last:border-r-0">{grade.subject.name}</TableCell>;
               case 'coefficient':
-                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.subject.coefficient}</TableCell>;
+                return <TableCell className="text-center border-r last:border-r-0 text-slate-700">{grade.subject.coefficient}</TableCell>;
               case 'homework':
-                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.homeworkAverage.toFixed(decimals)}</TableCell>;
+                return <TableCell className="text-center border-r last:border-r-0 text-slate-700">{grade.homeworkAverage.toFixed(decimals)}</TableCell>;
               case 'exam':
-                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{(grade.examAverage * 2).toFixed(decimals)}</TableCell>;
+                return <TableCell className="text-center border-r last:border-r-0 text-slate-700">{(grade.examAverage * 2).toFixed(decimals)}</TableCell>;
               case 'average':
                 return <TableCell className="text-center font-bold border-r last:border-r-0">{grade.average.toFixed(decimals)}</TableCell>;
               case 'weighted':
-                return <TableCell className="text-center border-r last:border-r-0">{(grade.average * grade.subject.coefficient).toFixed(decimals)}</TableCell>;
+                return <TableCell className="text-center border-r last:border-r-0 text-slate-700">{(grade.average * grade.subject.coefficient).toFixed(decimals)}</TableCell>;
               case 'classAverage':
-                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{(grade.classAverage ?? 0).toFixed(decimals)}</TableCell>;
+                return <TableCell className="text-center border-r last:border-r-0 text-slate-700">{(grade.classAverage ?? 0).toFixed(decimals)}</TableCell>;
               case 'rank':
                 return <TableCell className="text-center border-r last:border-r-0">{grade.rank || '-'}</TableCell>;
               case 'teacher':
-                return <TableCell className="text-center border-r last:border-r-0 text-muted-foreground">{grade.teacherName || '-'}</TableCell>;
+                return <TableCell className="text-center border-r last:border-r-0 text-slate-700">{grade.teacherName || '-'}</TableCell>;
               case 'appreciation':
-                return <TableCell className="text-sm italic border-r last:border-r-0 text-muted-foreground pt-3">{grade.grades[0]?.comment || (grade.average >= 16 ? 'Très Bien' : grade.average >= 14 ? 'Bien' : grade.average >= 12 ? 'Assez Bien' : grade.average >= 10 ? 'Passable' : 'Insuffisant')}</TableCell>;
+                return <TableCell className="text-sm italic border-r last:border-r-0 text-slate-700 pt-3">{grade.grades[0]?.comment || (grade.average >= 16 ? 'Très Bien' : grade.average >= 14 ? 'Bien' : grade.average >= 12 ? 'Assez Bien' : grade.average >= 10 ? 'Passable' : 'Insuffisant')}</TableCell>;
               default:
                 return null;
             }
@@ -232,7 +232,7 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({
 
   return (
     <div className={cn(
-      "bg-white shadow-2xl mx-auto overflow-hidden",
+      "bulletin-paper bg-white text-slate-900 shadow-2xl mx-auto overflow-hidden",
       isPreview ? "scale-[0.8] origin-top" : ""
     )}
     style={{

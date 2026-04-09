@@ -997,10 +997,10 @@ export default function Settings() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
                 <CardTitle className="flex items-center gap-2">
                   <Calculator className="h-5 w-5 text-primary" />
-                  Configuration des Moyennes
+                  Notation et Calcul des Moyennes
                 </CardTitle>
                 <CardDescription>
-                  Définissez comment les moyennes sont calculées pour les bulletins
+                  Paramétrez la méthode de notation utilisée sur les bulletins
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-8">
@@ -1008,11 +1008,11 @@ export default function Settings() {
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Méthode de calcul des moyennes</h4>
-                      <p className="text-xs text-muted-foreground mt-1">Choisissez la formule de calcul des matières</p>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Méthode de calcul des matières</h4>
+                      <p className="text-xs text-muted-foreground mt-1">Recommandé Mali : Direct (Comp x2, Moy/Coeff)</p>
                     </div>
                     <Select 
-                      value={formData.calculationConfig?.mode || 'normalized'} 
+                      value={formData.calculationConfig?.mode || 'direct'} 
                       onValueChange={(v: any) => setFormData({
                         ...formData, 
                         calculationConfig: { ...(formData.calculationConfig || { weights: { devoir: 1, composition: 2 }, normalizeBase: { devoir: 20, composition: 40 } }), mode: v }
@@ -1022,8 +1022,8 @@ export default function Settings() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="direct">Direct (Mali - recommandé)</SelectItem>
                         <SelectItem value="normalized">Normalisé (Pondéré)</SelectItem>
-                        <SelectItem value="direct">Direct (Terrain Mali)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1107,13 +1107,13 @@ export default function Settings() {
                       <div className="border border-dashed rounded-lg bg-white dark:bg-black/20 p-4 text-xs">
                         <p className="font-semibold text-muted-foreground flex items-center gap-2 mb-2">
                           <Calculator className="h-3 w-3" />
-                          Aperçu du calcul (Terrain Mali) :
+                          Aperçu du calcul (Mali) :
                         </p>
                         <code className="text-primary font-mono bg-primary/10 border border-primary/20 rounded py-1 px-3 mt-1 inline-block text-[13px] font-bold shadow-sm">
                           (Moyenne_Devoirs + Moyenne_Compo) / 3
                         </code>
                         <p className="mt-3 text-muted-foreground/80 italic text-[11px]">
-                          Le score est l'addition directe sans proportionnalité préalable. Ce mode implique généralement des interrogations notées globalement sur 20 et une composition sur 40.
+                          Interprétation bulletin : Comp x2 = (Moyenne_Compo x 2), puis Moy/Gle = (Note_Classe + Comp_x2) / 3. Le champ Moy/Coeff = Moy/Gle x Coef.
                         </p>
                       </div>
                     </div>

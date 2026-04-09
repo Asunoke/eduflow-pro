@@ -292,7 +292,7 @@ export default function BulletinBuilderPage() {
         {/* Main Canvas */}
         <main className="flex-1 overflow-auto p-12 flex justify-center items-start bg-slate-100 dark:bg-slate-900 custom-scrollbar relative">
           <div 
-            className="bg-white shadow-2xl origin-top transition-transform duration-200"
+            className="bulletin-paper bg-white text-slate-900 shadow-2xl origin-top transition-transform duration-200"
             style={{ 
               width: '210mm', 
               minHeight: '297mm', 

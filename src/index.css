@@ -381,6 +381,14 @@
 }
 
 @layer utilities {
+  .bulletin-paper {
+    color: #0f172a;
+  }
+
+  .dark .bulletin-paper {
+    color: #0f172a;
+  }
+
   .gradient-primary {
     background: var(--gradient-primary);
   }

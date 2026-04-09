@@ -69,10 +69,10 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
   if (isPreview) {
     // Simple preview rendering (similar to TemplateRenderer but standalone)
     return (
-      <div style={blockStyle} className="relative group">
+      <div style={blockStyle} className="relative group text-slate-900">
         {block.type === 'text' && <div className="whitespace-pre-wrap">{block.content}</div>}
         {block.type === 'table' && (
-          <div className="border rounded p-4 text-center text-xs text-muted-foreground bg-muted/20">
+          <div className="border rounded p-4 text-center text-xs text-slate-700 bg-slate-50">
             [Tableau Dynamique : {block.config?.columns?.join(', ')}]
           </div>
         )}
@@ -86,7 +86,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = ({
           </div>
         )}
         {block.type === 'signature' && (
-          <div className="border-t border-dotted pt-2 italic text-xs mt-10">{block.content}</div>
+          <div className="border-t border-dotted pt-2 italic text-xs mt-10 text-slate-700">{block.content}</div>
         )}
       </div>
     );
