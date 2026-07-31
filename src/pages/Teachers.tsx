@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Plus, School, Pencil, Trash2, Mail, Phone, Eye } from 'lucide-react';
 import type { Teacher } from '@/types';
 import { toast } from 'sonner';
@@ -210,12 +209,12 @@ export default function Teachers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="salary">Salaire Mensuel ({settings.currency})</Label>
-              <Input 
-                id="salary" 
-                type="number" 
+              <Input
+                id="salary"
+                type="number"
                 step="any"
-                value={formData.salary || ''} 
-                onChange={(e) => setFormData({ ...formData, salary: e.target.value === '' ? 0 : parseFloat(e.target.value) })} 
+                value={formData.salary || ''}
+                onChange={(e) => setFormData({ ...formData, salary: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
               />
             </div>
           </div>

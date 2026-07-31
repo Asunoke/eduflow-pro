@@ -2,12 +2,12 @@ import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 import { MainLayout } from '@/components/layout';
 import { PageHeader, StatsCard } from '@/components/shared';
-import { 
-  Users, 
-  GraduationCap, 
-  School, 
-  Wallet, 
-  TrendingUp, 
+import {
+  Users,
+  GraduationCap,
+  School,
+  Wallet,
+  TrendingUp,
   TrendingDown,
   Calendar as CalendarIcon,
   BookOpen,
@@ -17,12 +17,12 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -81,10 +81,9 @@ export default function Dashboard() {
   const distributionData = [
     { name: 'Garçons', value: Math.round((maleCount / totalStudents) * 100), color: 'hsl(var(--chart-1))' },
     { name: 'Filles', value: Math.round((femaleCount / totalStudents) * 100), color: 'hsl(var(--chart-2))' },
-    { name: 'Autres', value: 0, color: 'hsl(var(--chart-3))' },
   ];
 
-  const formatCurrency = (amount: number) => 
+  const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: settings.currency || 'XOF', maximumFractionDigits: 0 }).format(amount);
 
   const dashboardStats = [
@@ -141,10 +140,10 @@ export default function Dashboard() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
+
           {/* Left Column - 8/12 */}
           <div className="lg:col-span-8 space-y-6">
-            
+
             {/* Management Value Chart */}
             <Card className="rounded-3xl border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900/50 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between">
@@ -164,31 +163,31 @@ export default function Dashboard() {
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.2}/>
-                          <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: 'hsl(var(--muted-foreground))'}} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: 'hsl(var(--muted-foreground))'}} />
-                      <Tooltip 
-                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))' }}
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))' }}
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="revenus" 
-                        stroke="hsl(var(--chart-1))" 
-                        fillOpacity={1} 
-                        fill="url(#colorRev)" 
+                      <Area
+                        type="monotone"
+                        dataKey="revenus"
+                        stroke="hsl(var(--chart-1))"
+                        fillOpacity={1}
+                        fill="url(#colorRev)"
                         strokeWidth={4}
                         dot={{ r: 4, fill: 'hsl(var(--chart-1))', strokeWidth: 2, stroke: '#fff' }}
                         activeDot={{ r: 6 }}
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="depenses" 
-                        stroke="hsl(var(--destructive))" 
-                        fillOpacity={0} 
+                      <Area
+                        type="monotone"
+                        dataKey="depenses"
+                        stroke="hsl(var(--destructive))"
+                        fillOpacity={0}
                         strokeWidth={4}
                         strokeDasharray="5 5"
                       />
@@ -208,18 +207,18 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart layout="vertical" data={subjectTaskData} margin={{ left: 40 }}>
                       <XAxis type="number" hide />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fontSize: 12, fill: 'hsl(var(--foreground))', fontWeight: 500}} 
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: 'hsl(var(--foreground))', fontWeight: 500 }}
                         width={100}
                       />
-                      <Tooltip cursor={{fill: 'transparent'}} />
-                      <Bar 
-                        dataKey="score" 
-                        radius={[0, 10, 10, 0]} 
+                      <Tooltip cursor={{ fill: 'transparent' }} />
+                      <Bar
+                        dataKey="score"
+                        radius={[0, 10, 10, 0]}
                         barSize={16}
                       >
                         {subjectTaskData.map((entry, index) => (
@@ -235,7 +234,7 @@ export default function Dashboard() {
 
           {/* Right Column - 4/12 */}
           <div className="lg:col-span-4 space-y-6">
-            
+
             {/* Distribution Donut */}
             <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm">
               <CardContent className="pt-6">
@@ -285,10 +284,10 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="grid grid-cols-7 gap-y-4 text-center">
-                  {['D','L','M','M','J','V','S'].map(d => (
+                  {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(d => (
                     <span key={d} className="text-[10px] font-bold text-slate-400 uppercase">{d}</span>
                   ))}
-                  {Array.from({length: 31}).map((_, i) => {
+                  {Array.from({ length: 31 }).map((_, i) => {
                     const isToday = i + 1 === new Date().getDate();
                     return (
                       <div key={i} className={cn(
@@ -308,13 +307,12 @@ export default function Dashboard() {
             <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-base font-bold">Derniers Élèves</CardTitle>
-                <Button variant="ghost" size="sm" className="text-[10px] text-primary">Voir tout</Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {students.slice(0, 3).map((student) => (
                   <div key={student.id} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/20 hover:bg-slate-100 transition-colors">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--secondary))] flex items-center justify-center text-white text-xs font-bold">
-                       {student.firstName[0]}{student.lastName[0]}
+                      {student.firstName[0]}{student.lastName[0]}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold truncate">{student.firstName} {student.lastName}</p>
