@@ -1,22 +1,27 @@
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
+import { useAttendanceStore } from '@/store/useAttendanceStore';
 import { MainLayout } from '@/components/layout';
 import { PageHeader, StatsCard } from '@/components/shared';
 import {
   Users,
-  GraduationCap,
   School,
-  Wallet,
   TrendingUp,
   TrendingDown,
   Calendar as CalendarIcon,
-  BookOpen,
   ArrowRight,
-  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  CreditCard,
+  UserX,
+  FileText,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   AreaChart,
   Area,
@@ -37,46 +42,84 @@ const CHART_COLORS = [
   'hsl(var(--chart-2))',
   'hsl(var(--chart-3))',
   'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))'
+  'hsl(var(--chart-5))',
 ];
 
 export default function Dashboard() {
-  const { getDashboardStats, settings, students, classes, teachers, payments, expenses } = useStore();
+  const { getDashboardStats, settings, students, classes, teachers, payments, expenses, grades } = useStore();
+  const { absences, loadAbsences } = useAttendanceStore();
   const stats = getDashboardStats();
 
-  // Management Value Chart Data - Real financial history (last 6 months)
-  const chartData = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    return {
-      month: d.toLocaleDateString('fr-FR', { month: 'short' }),
-      revenus: 0,
-      depenses: 0
-    };
-  }).reverse();
+  useEffect(() => {
+    loadAbsences();
+  }, [loadAbsences]);
+
+  // Calendar State
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
+
+  // Month navigation
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+
+  const prevMonth = () => setCurrentMonthDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setCurrentMonthDate(new Date(year, month + 1, 1));
+  const resetToToday = () => {
+    const today = new Date();
+    setSelectedDate(today);
+    setCurrentMonthDate(today);
+  };
+
+  // Calendar days generation (Monday-start)
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const startOffset = (firstDayOfMonth + 6) % 7; // Monday = 0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const selectedDateStr = selectedDate.toISOString().split('T')[0];
+
+  // Daily activity calculations for selected date
+  const selectedDayPayments = payments.filter((p) => p.date === selectedDateStr);
+  const selectedDayExpenses = expenses.filter((e) => e.date === selectedDateStr);
+  const selectedDayAbsences = absences.filter((a) => a.date === selectedDateStr);
+  const selectedDayGrades = grades.filter((g) => g.date === selectedDateStr);
+
+  const dayPaymentsTotal = selectedDayPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  // Financial History Chart Data (last 6 months)
+  const chartData = Array.from({ length: 6 })
+    .map((_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      return {
+        month: d.toLocaleDateString('fr-FR', { month: 'short' }),
+        revenus: 0,
+        depenses: 0,
+      };
+    })
+    .reverse();
 
   payments.forEach((p) => {
-    const month = new Date(p.date).toLocaleDateString('fr-FR', { month: 'short' });
-    const match = chartData.find((m) => m.month === month);
+    const monthName = new Date(p.date).toLocaleDateString('fr-FR', { month: 'short' });
+    const match = chartData.find((m) => m.month === monthName);
     if (match) match.revenus += p.amount;
   });
 
   expenses.forEach((e) => {
-    const month = new Date(e.date).toLocaleDateString('fr-FR', { month: 'short' });
-    const match = chartData.find((m) => m.month === month);
+    const monthName = new Date(e.date).toLocaleDateString('fr-FR', { month: 'short' });
+    const match = chartData.find((m) => m.month === monthName);
     if (match) match.depenses += e.amount;
   });
 
-  // Subject Task Data - Real subjects (enrollment or coefficient)
+  // Class distribution chart data
   const subjectTaskData = classes.slice(0, 5).map((c, i) => ({
     name: c.name,
-    score: students.filter(s => s.classId === c.id).length * 10, // Mocking a score for visualization
-    color: CHART_COLORS[i % CHART_COLORS.length]
+    score: students.filter((s) => s.classId === c.id).length * 10,
+    color: CHART_COLORS[i % CHART_COLORS.length],
   }));
 
-  // Distribution Data - Real student gender distribution
-  const maleCount = students.filter(s => s.gender === 'M').length;
-  const femaleCount = students.filter(s => s.gender === 'F').length;
+  // Student gender distribution
+  const maleCount = students.filter((s) => s.gender === 'M').length;
+  const femaleCount = students.filter((s) => s.gender === 'F').length;
   const totalStudents = students.length || 1;
   const distributionData = [
     { name: 'Garçons', value: Math.round((maleCount / totalStudents) * 100), color: 'hsl(var(--chart-1))' },
@@ -84,36 +127,46 @@ export default function Dashboard() {
   ];
 
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: settings.currency || 'XOF', maximumFractionDigits: 0 }).format(amount);
+    new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: settings.currency || 'XOF',
+      maximumFractionDigits: 0,
+    }).format(amount);
 
-  const dashboardStats = [
+  const dashboardStats: Array<{
+    title: string;
+    value: string;
+    description: string;
+    icon: typeof Users;
+    variant: 'orange' | 'blue' | 'purple';
+  }> = [
     {
-      title: "Élèves Actifs",
+      title: 'Élèves Actifs',
       value: stats.activeStudents.toString(),
-      description: "Inscrits cette année",
+      description: 'Inscrits cette année',
       icon: Users,
-      variant: "orange",
+      variant: 'orange',
     },
     {
-      title: "Revenus (Paiements)",
+      title: 'Revenus (Paiements)',
       value: formatCurrency(stats.totalPayments),
-      description: "Total encaissé",
+      description: 'Total encaissé',
       icon: TrendingUp,
-      variant: "blue",
+      variant: 'blue',
     },
     {
-      title: "Enseignants",
+      title: 'Enseignants',
       value: teachers.length.toString(),
-      description: "Personnel éducatif",
+      description: 'Personnel éducatif',
       icon: School,
-      variant: "purple"
+      variant: 'purple',
     },
     {
-      title: "Dépenses (Salaires)",
+      title: 'Dépenses (Salaires)',
       value: formatCurrency(stats.totalExpenses),
-      description: "Charges et salaires",
+      description: 'Charges et salaires',
       icon: TrendingDown,
-      variant: "orange",
+      variant: 'orange',
     },
   ];
 
@@ -122,7 +175,7 @@ export default function Dashboard() {
       <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
         <PageHeader
           title="Tableau de bord"
-          description={settings.schoolName || "School Management"}
+          description={settings.schoolName || 'School Management'}
         />
 
         {/* Top Cards */}
@@ -132,18 +185,16 @@ export default function Dashboard() {
               key={i}
               title={stat.title}
               value={stat.value}
-              icon={stat.icon as any}
-              variant={stat.variant as any}
+              icon={stat.icon}
+              variant={stat.variant}
             />
           ))}
         </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
           {/* Left Column - 8/12 */}
           <div className="lg:col-span-8 space-y-6">
-
             {/* Management Value Chart */}
             <Card className="rounded-3xl border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900/50 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between">
@@ -200,7 +251,7 @@ export default function Dashboard() {
             {/* Subject Task Bar Chart */}
             <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-lg font-bold">Répartition par Classe</CardTitle>
+                <CardTitle className="text-lg font-bold">Répartition des Effectifs par Classe</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[250px] w-full">
@@ -216,11 +267,7 @@ export default function Dashboard() {
                         width={100}
                       />
                       <Tooltip cursor={{ fill: 'transparent' }} />
-                      <Bar
-                        dataKey="score"
-                        radius={[0, 10, 10, 0]}
-                        barSize={16}
-                      >
+                      <Bar dataKey="score" radius={[0, 10, 10, 0]} barSize={16}>
                         {subjectTaskData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
@@ -234,17 +281,164 @@ export default function Dashboard() {
 
           {/* Right Column - 4/12 */}
           <div className="lg:col-span-4 space-y-6">
+            {/* Interactive Calendar Widget */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm p-6 overflow-hidden relative">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-bold text-base capitalize text-slate-800 dark:text-white">
+                    {currentMonthDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={prevMonth}
+                      className="h-8 w-8 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetToToday}
+                      className="text-xs px-2 h-7 font-medium text-primary hover:bg-primary/10"
+                    >
+                      Aujourd'hui
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={nextMonth}
+                      className="h-8 w-8 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
 
-            {/* Distribution Donut */}
+                <div className="grid grid-cols-7 gap-y-2 text-center">
+                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, index) => (
+                    <span key={index} className="text-[10px] font-bold text-slate-400 uppercase">
+                      {d}
+                    </span>
+                  ))}
+
+                  {/* Offset empty slots */}
+                  {Array.from({ length: startOffset }).map((_, i) => (
+                    <div key={`offset-${i}`} className="p-2" />
+                  ))}
+
+                  {/* Month days */}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const dayNum = i + 1;
+                    const dateObj = new Date(year, month, dayNum);
+                    const isToday =
+                      dayNum === new Date().getDate() &&
+                      month === new Date().getMonth() &&
+                      year === new Date().getFullYear();
+                    const isSelected =
+                      dayNum === selectedDate.getDate() &&
+                      month === selectedDate.getMonth() &&
+                      year === selectedDate.getFullYear();
+
+                    return (
+                      <button
+                        type="button"
+                        key={dayNum}
+                        onClick={() => setSelectedDate(dateObj)}
+                        className={cn(
+                          'p-2 text-xs transition-all rounded-xl relative flex items-center justify-center font-medium focus:outline-none',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground font-bold shadow-md shadow-primary/30'
+                            : isToday
+                            ? 'border border-primary/40 text-primary font-bold hover:bg-primary/10'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {dayNum}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+
+            {/* Dynamic Journal Panel for Selected Date */}
+            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-sm font-bold">
+                      Activités du {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </CardTitle>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">
+                    {selectedDayPayments.length + selectedDayAbsences.length + selectedDayGrades.length} événement(s)
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Payments */}
+                {selectedDayPayments.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                        <CreditCard className="h-3.5 w-3.5" /> Encaissés : {selectedDayPayments.length} paiement(s)
+                      </span>
+                      <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                        +{formatCurrency(dayPaymentsTotal)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Absences */}
+                {selectedDayAbsences.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                        <UserX className="h-3.5 w-3.5" /> Absences : {selectedDayAbsences.length} personne(s)
+                      </span>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-300 font-semibold">
+                        {selectedDayAbsences.filter((a) => a.justified).length} justifiée(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grades */}
+                {selectedDayGrades.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5" /> Évaluations : {selectedDayGrades.length} note(s) saisie(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty State for Date */}
+                {selectedDayPayments.length === 0 &&
+                  selectedDayAbsences.length === 0 &&
+                  selectedDayGrades.length === 0 && (
+                    <div className="py-6 text-center text-xs text-muted-foreground">
+                      Aucun événement enregistré à cette date.
+                    </div>
+                  )}
+              </CardContent>
+            </Card>
+
+            {/* Gender Distribution Donut */}
             <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm">
               <CardContent className="pt-6">
-                <div className="relative h-[200px] flex items-center justify-center">
+                <div className="relative h-[180px] flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={distributionData}
-                        innerRadius={60}
-                        outerRadius={80}
+                        innerRadius={55}
+                        outerRadius={75}
                         paddingAngle={5}
                         dataKey="value"
                       >
@@ -256,15 +450,15 @@ export default function Dashboard() {
                   </ResponsiveContainer>
                   <div className="absolute flex flex-col items-center">
                     <span className="text-2xl font-bold">{maleCount + femaleCount > 0 ? '100%' : '0%'}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Effectif</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-4">
+                <div className="grid grid-cols-2 gap-2 mt-2">
                   {distributionData.map((item) => (
-                    <div key={item.name} className="flex flex-col items-center gap-1">
+                    <div key={item.name} className="flex flex-col items-center gap-0.5">
                       <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-[10px] font-medium">{item.name}</span>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-xs font-medium">{item.name}</span>
                       </div>
                       <span className="text-xs font-bold">{item.value}%</span>
                     </div>
@@ -272,58 +466,6 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Calendar Widget */}
-            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm p-6 overflow-hidden relative">
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <span className="font-bold text-lg text-slate-800 dark:text-white">{new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</span>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><ArrowRight className="rotate-180 h-3 w-3" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><ArrowRight className="h-3 w-3" /></Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-7 gap-y-4 text-center">
-                  {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map(d => (
-                    <span key={d} className="text-[10px] font-bold text-slate-400 uppercase">{d}</span>
-                  ))}
-                  {Array.from({ length: 31 }).map((_, i) => {
-                    const isToday = i + 1 === new Date().getDate();
-                    return (
-                      <div key={i} className={cn(
-                        "p-2 text-xs transition-all cursor-default relative group",
-                        isToday ? "text-primary-foreground font-bold" : "text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
-                      )}>
-                        {isToday && <div className="absolute inset-0 bg-primary rounded-xl shadow-lg shadow-primary/30 -z-10 animate-pulse" />}
-                        {i + 1}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </Card>
-
-            {/* List Widget */}
-            <Card className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900/50 backdrop-blur-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-base font-bold">Derniers Élèves</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {students.slice(0, 3).map((student) => (
-                  <div key={student.id} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/20 hover:bg-slate-100 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--secondary))] flex items-center justify-center text-white text-xs font-bold">
-                      {student.firstName[0]}{student.lastName[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold truncate">{student.firstName} {student.lastName}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{student.matricule}</p>
-                    </div>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
           </div>
         </div>
       </div>

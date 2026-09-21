@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
+import { useAttendanceStore } from '@/store/useAttendanceStore';
 import { MainLayout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ export default function StudentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { students, classes, levels, cycles, grades, payments, subjects, periods, settings } = useStore();
+  const { absences } = useAttendanceStore();
 
   const student = students.find((s) => s.id === id);
   if (!student) {
@@ -48,6 +50,10 @@ export default function StudentDetail() {
   const cycle = level ? cycles.find((c) => c.type === level.cycleType) : null;
   const studentGrades = grades.filter((g) => g.studentId === student.id);
   const studentPayments = payments.filter((p) => p.studentId === student.id);
+  const studentAbsences = absences.filter((a) => a.personType === 'student' && a.personId === student.id);
+  const attendanceRate = studentAbsences.length > 0 
+    ? Math.max(0, Math.round(((90 - studentAbsences.length) / 90) * 100))
+    : 100;
   
   // Calcul Scolarité (Période malienne standard: Septembre à aujourd'hui)
   const enrollmentDate = new Date(student.enrollmentDate);
@@ -93,6 +99,7 @@ export default function StudentDetail() {
         { label: "Niveau", value: level?.name || '-' },
         { label: "Cycle", value: cycle?.name || '-' },
         { label: "Moyenne Générale", value: <span className="text-primary font-black text-lg">{avgGrade}/20</span> },
+        { label: "Taux de Présence", value: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{attendanceRate}% ({studentAbsences.length} abs)</span> },
       ]
     },
     {

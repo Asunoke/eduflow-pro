@@ -371,3 +371,111 @@ export const GRADING_SCALE_LABELS: Record<SchoolSettings['gradingScale'], string
   ten: 'Notation sur 10',
   twenty: 'Notation sur 20',
 };
+
+// --- Absences Types ---
+export type PersonType = 'student' | 'teacher';
+export type ReasonCategory = 'illness' | 'authorized' | 'unexcused' | 'late' | 'other';
+export type AttendancePeriod = 'morning' | 'afternoon' | 'full_day' | 'slot';
+
+export interface Absence {
+  id: string;
+  personType: PersonType;
+  personId: string;
+  classId?: string;
+  date: string;
+  period: AttendancePeriod;
+  duration?: number;
+  fullDay?: boolean;
+  reasonCategory: ReasonCategory;
+  reasonDetail?: string;
+  reasonNote?: string;
+  justified: boolean;
+  justificationDoc?: string;
+  recordedBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export const REASON_CATEGORY_LABELS: Record<ReasonCategory, string> = {
+  illness: 'Maladie / Raison médicale',
+  authorized: 'Absence autorisée / Permission',
+  unexcused: 'Non justifiée / Injustifiée',
+  late: 'Retard',
+  other: 'Autre motif',
+};
+
+export const ATTENDANCE_PERIOD_LABELS: Record<AttendancePeriod, string> = {
+  morning: 'Matin',
+  afternoon: 'Après-midi',
+  full_day: 'Journée entière',
+  slot: 'Séance / Créneau spécifique',
+};
+
+// --- Schedule / Timetable Types ---
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6; // 1 = Lundi, 6 = Samedi
+
+export const DAYS_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
+  1: 'Lundi',
+  2: 'Mardi',
+  3: 'Mercredi',
+  4: 'Jeudi',
+  5: 'Vendredi',
+  6: 'Samedi',
+};
+
+export interface TimeSlot {
+  id: string;
+  classId: string;
+  subjectId: string;
+  teacherId: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string; // e.g., "08:00"
+  endTime: string;   // e.g., "09:00"
+  room?: string;
+  academicYear: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleConflict {
+  type: 'teacher' | 'class' | 'room';
+  message: string;
+  conflictingSlot: TimeSlot;
+}
+
+// --- Billing, Invoices & Receipts Types ---
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  amount: number;
+}
+
+export interface Invoice {
+  id: string;
+  number: string; // e.g. FAC-2026-0001
+  studentId: string;
+  academicYear: string;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  items: InvoiceItem[];
+  totalAmount: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Receipt {
+  id: string;
+  number: string; // e.g. REC-2026-0001
+  paymentId: string;
+  studentId: string;
+  amount: number;
+  date: string;
+  academicYear: string;
+  pdfUrl?: string;
+  createdAt: string;
+}
+

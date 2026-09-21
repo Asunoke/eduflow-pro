@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,20 +15,37 @@ import Grades from "./pages/Grades";
 import Finances from "./pages/Finances";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Attendance from "./pages/Attendance";
+import Schedule from "./pages/Schedule";
+import Invoices from "./pages/Invoices";
 import BulletinBuilderPage from "./pages/BulletinBuilderPage";
 import NotFound from "./pages/NotFound";
+import { MigrationOverlay } from "@/components/shared/MigrationOverlay";
+import type { MigrationProgress } from "@/db/migrateFromLocalStorage";
+import { useStore } from "./store/useStore";
 
 const queryClient = new QueryClient();
-
-import { useEffect } from "react";
-import { useStore } from "./store/useStore";
 
 const App = () => {
   const darkMode = useStore((state) => state.darkMode);
   const settings = useStore((state) => state.settings);
   const updateSettings = useStore((state) => state.updateSettings);
+  const isInitialized = useStore((state) => state.isInitialized);
+  const initializeStore = useStore((state) => state.initializeStore);
+
+  const [migrationProgress, setMigrationProgress] = useState<MigrationProgress>({
+    status: 'idle',
+    progress: 0,
+    message: '',
+  });
 
   useEffect(() => {
+    initializeStore(setMigrationProgress);
+  }, [initializeStore]);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+
     // Inject Mali default templates if missing
     const hasMaliComposition = settings.templates?.some(t => t.id === "default-mali-composition");
     const hasMaliPremierePeriode = settings.templates?.some(t => t.id === "default-mali-premiere-periode");
@@ -46,11 +64,12 @@ const App = () => {
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [darkMode, settings, updateSettings]);
+  }, [isInitialized, darkMode, settings, updateSettings]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <MigrationOverlay progress={migrationProgress} />
         <Toaster />
         <Sonner />
         <HashRouter>
@@ -62,7 +81,10 @@ const App = () => {
             <Route path="/teachers" element={<Teachers />} />
             <Route path="/teachers/:id" element={<TeacherDetail />} />
             <Route path="/subjects" element={<Subjects />} />
+            <Route path="/schedule" element={<Schedule />} />
             <Route path="/grades" element={<Grades />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/invoices" element={<Invoices />} />
             <Route path="/finances" element={<Finances />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />

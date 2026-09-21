@@ -15,17 +15,23 @@ import {
   School,
   Moon,
   Sun,
+  UserCheck,
+  Calendar,
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const navigation = [
   { name: 'Tableau de bord', href: '/', icon: LayoutDashboard },
-  { name: 'Élèves', href: '/students', icon: Users },
   { name: 'Classes', href: '/classes', icon: GraduationCap },
+  { name: 'Élèves', href: '/students', icon: Users },
   { name: 'Professeurs', href: '/teachers', icon: School },
   { name: 'Matières', href: '/subjects', icon: BookOpen },
+  { name: 'Emploi du temps', href: '/schedule', icon: Calendar },
   { name: 'Notes & Bulletins', href: '/grades', icon: ClipboardList },
+  { name: 'Absences', href: '/attendance', icon: UserCheck },
+  { name: 'Factures & Reçus', href: '/invoices', icon: Receipt },
   { name: 'Finances', href: '/finances', icon: Wallet },
   { name: 'Rapports', href: '/reports', icon: FileText },
 ];

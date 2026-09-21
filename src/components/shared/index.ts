@@ -5,3 +5,4 @@ export { StatusBadge } from './StatusBadge';
 export { ConfirmDialog } from './ConfirmDialog';
 export { EmptyState, LoadingState } from './EmptyState';
 export { PhotoUpload } from './PhotoUpload';
+export { MigrationOverlay } from './MigrationOverlay';

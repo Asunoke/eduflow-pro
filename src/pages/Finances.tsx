@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '@/store/useStore';
 import { MainLayout } from '@/components/layout';
 import { PageHeader, EmptyState, ConfirmDialog } from '@/components/shared';
@@ -40,10 +40,16 @@ import {
   CreditCard,
   Pencil,
   Trash2,
-  Users,
+  Printer,
+  Download,
+  Search,
+  Filter,
+  FileCheck,
+  PieChart as PieChartIcon
 } from 'lucide-react';
 import type { Payment, Expense } from '@/types';
 import { PAYMENT_TYPES, PAYMENT_METHODS, EXPENSE_CATEGORIES } from '@/types';
+import { generatePaymentReceiptPDF } from '@/lib/pdfGenerator';
 import { toast } from 'sonner';
 import { 
   AreaChart, 
@@ -53,13 +59,24 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
+
+const CATEGORY_COLORS: Record<string, string> = {
+  salary: '#3b82f6',
+  utilities: '#f59e0b',
+  supplies: '#10b981',
+  maintenance: '#ec4899',
+  equipment: '#8b5cf6',
+  other: '#64748b',
+};
 
 export default function Finances() {
   const { 
     students, 
     classes, 
-    levels,
     payments, 
     expenses, 
     settings,
@@ -81,30 +98,88 @@ export default function Finances() {
   const [expenseData, setExpenseData] = useState<Partial<Expense>>({});
   const [deleteType, setDeleteType] = useState<'payment' | 'expense'>('payment');
 
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: settings.currency || 'XOF' }).format(amount);
+  // Search and Filter state
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('all');
 
-  const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0);
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const formatCurrency = (amount: number) => 
+    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: settings.currency || 'XOF', maximumFractionDigits: 0 }).format(amount);
+
+  const totalPayments = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
+  const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
   const balance = totalPayments - totalExpenses;
 
   // Chart data by month
-  const monthlyData = [...Array(6)].map((_, i) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - (5 - i));
-    const month = date.toLocaleDateString('fr-FR', { month: 'short' });
-    const monthPayments = payments
-      .filter((p) => new Date(p.date).getMonth() === date.getMonth())
-      .reduce((sum, p) => sum + p.amount, 0);
-    const monthExpenses = expenses
-      .filter((e) => new Date(e.date).getMonth() === date.getMonth())
-      .reduce((sum, e) => sum + e.amount, 0);
-    return { month, recettes: monthPayments, depenses: monthExpenses };
-  });
+  const monthlyData = useMemo(() => {
+    return [...Array(6)].map((_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - (5 - i));
+      const month = date.toLocaleDateString('fr-FR', { month: 'short' });
+      const monthPayments = payments
+        .filter((p) => {
+          const d = new Date(p.date);
+          return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
+        })
+        .reduce((sum, p) => sum + p.amount, 0);
+      const monthExpenses = expenses
+        .filter((e) => {
+          const d = new Date(e.date);
+          return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
+        })
+        .reduce((sum, e) => sum + e.amount, 0);
+      return { month, recettes: monthPayments, depenses: monthExpenses };
+    });
+  }, [payments, expenses]);
+
+  // Expenses category breakdown
+  const categoryBreakdown = useMemo(() => {
+    const map: Record<string, number> = {};
+    expenses.forEach((e) => {
+      map[e.category] = (map[e.category] || 0) + e.amount;
+    });
+
+    return Object.entries(map).map(([cat, amt]) => ({
+      name: EXPENSE_CATEGORIES[cat as keyof typeof EXPENSE_CATEGORIES] || cat,
+      categoryKey: cat,
+      value: amt,
+      percentage: totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0,
+      color: CATEGORY_COLORS[cat] || '#94a3b8',
+    }));
+  }, [expenses, totalExpenses]);
 
   const getStudentName = (studentId: string) => {
     const student = students.find((s) => s.id === studentId);
-    return student ? `${student.lastName} ${student.firstName}` : '-';
+    return student ? `${student.lastName} ${student.firstName}` : 'Inconnu';
+  };
+
+  const getStudentClass = (studentId: string) => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) return undefined;
+    return classes.find((c) => c.id === student.classId);
+  };
+
+  const handleDownloadReceipt = async (payment: Payment) => {
+    const student = students.find((s) => s.id === payment.studentId);
+    if (!student) {
+      toast.error("Élève non trouvé pour ce paiement");
+      return;
+    }
+    const studentClass = classes.find((c) => c.id === student.classId);
+    const saved = await generatePaymentReceiptPDF(payment, student, studentClass, settings, undefined, 'download');
+    if (saved) {
+      toast.success(`Reçu PDF enregistré pour ${student.lastName}`);
+    }
+  };
+
+  const handlePrintReceipt = async (payment: Payment) => {
+    const student = students.find((s) => s.id === payment.studentId);
+    if (!student) {
+      toast.error("Élève non trouvé pour ce paiement");
+      return;
+    }
+    const studentClass = classes.find((c) => c.id === student.classId);
+    await generatePaymentReceiptPDF(payment, student, studentClass, settings, undefined, 'print');
   };
 
   const handleOpenPaymentDialog = (payment?: Payment) => {
@@ -119,7 +194,8 @@ export default function Finances() {
         type: 'tuition',
         method: 'cash',
         date: new Date().toISOString().split('T')[0],
-        academicYear: settings.currentAcademicYear,
+        academicYear: settings.currentAcademicYear || '2025-2026',
+        reference: '',
       });
     }
     setIsPaymentDialogOpen(true);
@@ -136,7 +212,8 @@ export default function Finances() {
         category: 'supplies',
         description: '',
         date: new Date().toISOString().split('T')[0],
-        academicYear: settings.currentAcademicYear,
+        academicYear: settings.currentAcademicYear || '2025-2026',
+        reference: '',
       });
     }
     setIsExpenseDialogOpen(true);
@@ -197,17 +274,38 @@ export default function Finances() {
     setIsDeleteOpen(false);
   };
 
+  // Filtered Lists
+  const filteredPayments = useMemo(() => {
+    return payments.slice().reverse().filter((p) => {
+      const studentName = getStudentName(p.studentId).toLowerCase();
+      const ref = (p.reference || '').toLowerCase();
+      const q = paymentSearch.toLowerCase();
+      return studentName.includes(q) || ref.includes(q);
+    });
+  }, [payments, paymentSearch, students]);
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.slice().reverse().filter((e) => {
+      const desc = e.description.toLowerCase();
+      const ref = (e.reference || '').toLowerCase();
+      const q = expenseSearch.toLowerCase();
+      const matchesSearch = desc.includes(q) || ref.includes(q);
+      const matchesCategory = expenseCategoryFilter === 'all' || e.category === expenseCategoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [expenses, expenseSearch, expenseCategoryFilter]);
+
   return (
     <MainLayout>
-      <PageHeader title="Finances" description="Gestion des paiements et dépenses">
+      <PageHeader title="Finances Pro" description="Gestion intégrée des paiements, factures, dépenses et pièces comptables">
         <div className="flex gap-2">
           <Button onClick={() => handleOpenPaymentDialog()} className="gradient-primary">
             <Plus className="h-4 w-4 mr-2" />
-            Paiement
+            Nouveau Paiement
           </Button>
           <Button onClick={() => handleOpenExpenseDialog()} variant="outline">
             <Plus className="h-4 w-4 mr-2" />
-            Dépense
+            Nouvelle Dépense
           </Button>
         </div>
       </PageHeader>
@@ -222,7 +320,7 @@ export default function Finances() {
                 <p className="text-2xl font-bold text-success mt-1">
                   {formatCurrency(totalPayments)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{payments.length} paiements</p>
+                <p className="text-xs text-muted-foreground mt-1">{payments.length} encaissements reçus</p>
               </div>
               <div className="p-3 rounded-xl bg-success-light">
                 <TrendingUp className="h-6 w-6 text-success" />
@@ -239,7 +337,7 @@ export default function Finances() {
                 <p className="text-2xl font-bold text-warning mt-1">
                   {formatCurrency(totalExpenses)}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">{expenses.length} dépenses</p>
+                <p className="text-xs text-muted-foreground mt-1">{expenses.length} pièces de dépenses</p>
               </div>
               <div className="p-3 rounded-xl bg-warning-light">
                 <TrendingDown className="h-6 w-6 text-warning" />
@@ -252,12 +350,12 @@ export default function Finances() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Solde</p>
+                <p className="text-sm text-muted-foreground">Solde Net de Caisse</p>
                 <p className={`text-2xl font-bold mt-1 ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
                   {formatCurrency(balance)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {balance >= 0 ? 'Positif' : 'Négatif'}
+                  {balance >= 0 ? 'Trésorerie positive' : 'Déficit budgétaire'}
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-primary-light">
@@ -268,26 +366,26 @@ export default function Finances() {
         </Card>
       </div>
 
-      {/* Chart */}
+      {/* Evolution Chart */}
       <Card className="rounded-3xl border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900/50 backdrop-blur-sm mb-6">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-bold">Évolution mensuelle</CardTitle>
+          <CardTitle className="text-lg font-bold">Évolution mensuelle Recettes vs Dépenses</CardTitle>
           <div className="flex gap-4">
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-3))]" /> Recettes
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-3))]" /> Recettes
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-[hsl(var(--destructive))]" /> Dépenses
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-3 h-3 rounded-full bg-[hsl(var(--destructive))]" /> Dépenses
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] w-full">
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyData}>
                 <defs>
                   <linearGradient id="colorRecettes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.2}/>
+                    <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.25}/>
                     <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
@@ -312,19 +410,21 @@ export default function Finances() {
                 <Area 
                   type="monotone" 
                   dataKey="recettes" 
+                  name="Recettes"
                   stroke="hsl(var(--chart-3))" 
                   fillOpacity={1} 
                   fill="url(#colorRecettes)" 
-                  strokeWidth={4}
+                  strokeWidth={3}
                   dot={{ r: 4, fill: 'hsl(var(--chart-3))', strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 6 }}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="depenses" 
+                  name="Dépenses"
                   stroke="hsl(var(--destructive))" 
                   fillOpacity={0} 
-                  strokeWidth={4}
+                  strokeWidth={3}
                   strokeDasharray="5 5"
                 />
               </AreaChart>
@@ -338,64 +438,107 @@ export default function Finances() {
         <TabsList>
           <TabsTrigger value="payments" className="gap-2">
             <Receipt className="h-4 w-4" />
-            Paiements
+            Recettes / Paiements ({payments.length})
           </TabsTrigger>
           <TabsTrigger value="expenses" className="gap-2">
             <CreditCard className="h-4 w-4" />
-            Dépenses
+            Dépenses Pro ({expenses.length})
           </TabsTrigger>
         </TabsList>
 
+        {/* PAYMENTS TAB */}
         <TabsContent value="payments" className="mt-6">
+          <Card className="p-4 mb-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher élève, réf..."
+                  value={paymentSearch}
+                  onChange={(e) => setPaymentSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Affichage de {filteredPayments.length} paiement(s)
+              </span>
+            </div>
+          </Card>
+
           <Card className="table-container">
-            {payments.length > 0 ? (
+            {filteredPayments.length > 0 ? (
               <Table>
                 <TableHeader className="table-header">
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Élève</TableHead>
+                    <TableHead>Classe</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Méthode</TableHead>
                     <TableHead className="text-right">Montant</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right">Actions / Imprimer</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payments.slice().reverse().map((payment) => (
-                    <TableRow key={payment.id} className="table-row-hover">
-                      <TableCell>{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
-                      <TableCell className="font-medium">{getStudentName(payment.studentId)}</TableCell>
-                      <TableCell>
-                        <span className="badge-info">{PAYMENT_TYPES[payment.type]}</span>
-                      </TableCell>
-                      <TableCell>{PAYMENT_METHODS[payment.method]}</TableCell>
-                      <TableCell className="text-right font-semibold text-success">
-                        {formatCurrency(payment.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenPaymentDialog(payment)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => confirmDeletePayment(payment)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredPayments.map((payment) => {
+                    const studentClass = getStudentClass(payment.studentId);
+                    return (
+                      <TableRow key={payment.id} className="table-row-hover">
+                        <TableCell className="text-xs font-mono">{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
+                        <TableCell className="font-medium">{getStudentName(payment.studentId)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{studentClass?.name || '-'}</TableCell>
+                        <TableCell>
+                          <span className="badge-info">{PAYMENT_TYPES[payment.type]}</span>
+                        </TableCell>
+                        <TableCell className="text-xs">{PAYMENT_METHODS[payment.method]}</TableCell>
+                        <TableCell className="text-right font-semibold text-success">
+                          {formatCurrency(payment.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              title="Télécharger le Reçu Officiel PDF"
+                              onClick={() => handleDownloadReceipt(payment)}
+                              className="h-8 gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span className="text-xs hidden sm:inline">Télécharger</span>
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              title="Imprimer le Reçu Officiel PDF"
+                              onClick={() => handlePrintReceipt(payment)}
+                              className="h-8 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                              <span className="text-xs hidden sm:inline">Imprimer</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenPaymentDialog(payment)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => confirmDeletePayment(payment)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
               <EmptyState
                 icon={<Receipt className="h-12 w-12" />}
-                title="Aucun paiement"
-                description="Enregistrez votre premier paiement."
+                title="Aucun paiement trouvé"
+                description="Enregistrez un nouveau règlement d'élève."
                 action={
                   <Button onClick={() => handleOpenPaymentDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -407,13 +550,94 @@ export default function Finances() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="expenses" className="mt-6">
+        {/* EXPENSES TAB */}
+        <TabsContent value="expenses" className="mt-6 space-y-6">
+          {/* Expenses Category Breakdown */}
+          {expenses.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="md:col-span-1 p-4 flex flex-col justify-center items-center">
+                <CardTitle className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  <PieChartIcon className="h-4 w-4 text-primary" /> Répartition des Dépenses
+                </CardTitle>
+                <div className="h-[180px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={70}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {categoryBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(val: number) => [formatCurrency(val)]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              <Card className="md:col-span-2 p-4">
+                <CardTitle className="text-sm font-semibold mb-3">Ventilation Budgétaire par Poste</CardTitle>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {categoryBreakdown.map((cat) => (
+                    <div key={cat.categoryKey} className="p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/40">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                        <span className="text-xs font-medium text-muted-foreground truncate">{cat.name}</span>
+                      </div>
+                      <p className="text-sm font-bold">{formatCurrency(cat.value)}</p>
+                      <p className="text-[10px] text-muted-foreground">{cat.percentage}% du total</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Filter Bar */}
+          <Card className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="flex flex-1 gap-2 w-full sm:w-auto">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher libellé, pièce N°..."
+                    value={expenseSearch}
+                    onChange={(e) => setExpenseSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={expenseCategoryFilter} onValueChange={setExpenseCategoryFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les catégories</SelectItem>
+                    {Object.entries(EXPENSE_CATEGORIES).map(([k, label]) => (
+                      <SelectItem key={k} value={k}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Affichage de {filteredExpenses.length} dépense(s)
+              </span>
+            </div>
+          </Card>
+
           <Card className="table-container">
-            {expenses.length > 0 ? (
+            {filteredExpenses.length > 0 ? (
               <Table>
                 <TableHeader className="table-header">
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>N° Réf / Pièce</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Catégorie</TableHead>
                     <TableHead className="text-right">Montant</TableHead>
@@ -421,9 +645,19 @@ export default function Finances() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.slice().reverse().map((expense) => (
+                  {filteredExpenses.map((expense) => (
                     <TableRow key={expense.id} className="table-row-hover">
-                      <TableCell>{new Date(expense.date).toLocaleDateString('fr-FR')}</TableCell>
+                      <TableCell className="text-xs font-mono">{new Date(expense.date).toLocaleDateString('fr-FR')}</TableCell>
+                      <TableCell className="text-xs font-mono font-medium text-slate-500">
+                        {expense.reference ? (
+                          <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                            <FileCheck className="h-3 w-3 text-muted-foreground" />
+                            {expense.reference}
+                          </span>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{expense.description}</TableCell>
                       <TableCell>
                         <span className="badge-warning">{EXPENSE_CATEGORIES[expense.category]}</span>
@@ -453,8 +687,8 @@ export default function Finances() {
             ) : (
               <EmptyState
                 icon={<CreditCard className="h-12 w-12" />}
-                title="Aucune dépense"
-                description="Enregistrez votre première dépense."
+                title="Aucune dépense trouvée"
+                description="Enregistrez vos achats, fournitures ou factures de fonctionnement."
                 action={
                   <Button onClick={() => handleOpenExpenseDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -471,8 +705,8 @@ export default function Finances() {
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedPayment ? 'Modifier le paiement' : 'Nouveau paiement'}</DialogTitle>
-            <DialogDescription>Enregistrez un paiement reçu</DialogDescription>
+            <DialogTitle>{selectedPayment ? 'Modifier le paiement' : 'Nouveau paiement d\'élève'}</DialogTitle>
+            <DialogDescription>Enregistrez les versements et générez automatiquement le reçu officiel</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
@@ -486,23 +720,26 @@ export default function Finances() {
                   <SelectValue placeholder="Sélectionner un élève" />
                 </SelectTrigger>
                 <SelectContent>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.lastName} {student.firstName} ({student.matricule})
-                    </SelectItem>
-                  ))}
+                  {students.map((student) => {
+                    const stClass = classes.find(c => c.id === student.classId);
+                    return (
+                      <SelectItem key={student.id} value={student.id}>
+                        {student.lastName} {student.firstName} ({student.matricule}) - {stClass?.name || 'Sans classe'}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Montant *</Label>
+                <Label>Montant (FCFA) *</Label>
                 <Input
                   type="number"
                   step="any"
                   value={paymentData.amount || ''}
                   onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                  placeholder="0"
+                  placeholder="0 FCFA"
                 />
               </div>
               <div className="space-y-2">
@@ -516,7 +753,7 @@ export default function Finances() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Type</Label>
+                <Label>Type de Règlement</Label>
                 <Select
                   value={paymentData.type}
                   onValueChange={(value) => setPaymentData({ ...paymentData, type: value as Payment['type'] })}
@@ -532,7 +769,7 @@ export default function Finances() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Méthode</Label>
+                <Label>Mode de Paiement</Label>
                 <Select
                   value={paymentData.method}
                   onValueChange={(value) => setPaymentData({ ...paymentData, method: value as Payment['method'] })}
@@ -548,6 +785,14 @@ export default function Finances() {
                 </Select>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Référence / N° Chèque ou Mobile Money</Label>
+              <Input
+                value={paymentData.reference || ''}
+                onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
+                placeholder="Ex: Orange Money #987234"
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -561,28 +806,28 @@ export default function Finances() {
       <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedExpense ? 'Modifier la dépense' : 'Nouvelle dépense'}</DialogTitle>
-            <DialogDescription>Enregistrez une dépense</DialogDescription>
+            <DialogTitle>{selectedExpense ? 'Modifier la dépense' : 'Nouvelle dépense d\'établissement'}</DialogTitle>
+            <DialogDescription>Enregistrez les sorties de caisse et pièces justificatives</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>Description *</Label>
+              <Label>Description / Motif de la dépense *</Label>
               <Textarea
                 value={expenseData.description || ''}
                 onChange={(e) => setExpenseData({ ...expenseData, description: e.target.value })}
-                placeholder="Description de la dépense"
+                placeholder="Ex: Achat de craies, ramettes de papier et cartouches d'encre"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Montant *</Label>
+                <Label>Montant (FCFA) *</Label>
                 <Input
                   type="number"
                   step="any"
                   value={expenseData.amount || ''}
                   onChange={(e) => setExpenseData({ ...expenseData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                  placeholder="0"
+                  placeholder="0 FCFA"
                 />
               </div>
               <div className="space-y-2">
@@ -594,21 +839,31 @@ export default function Finances() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Catégorie</Label>
-              <Select
-                value={expenseData.category}
-                onValueChange={(value) => setExpenseData({ ...expenseData, category: value as Expense['category'] })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(EXPENSE_CATEGORIES).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Catégorie Budgétaire</Label>
+                <Select
+                  value={expenseData.category}
+                  onValueChange={(value) => setExpenseData({ ...expenseData, category: value as Expense['category'] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(EXPENSE_CATEGORIES).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>N° Pièce Justificative / Facture</Label>
+                <Input
+                  value={expenseData.reference || ''}
+                  onChange={(e) => setExpenseData({ ...expenseData, reference: e.target.value })}
+                  placeholder="Ex: PJ-2026-084"
+                />
+              </div>
             </div>
           </div>
 

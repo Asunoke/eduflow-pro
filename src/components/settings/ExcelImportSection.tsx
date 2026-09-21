@@ -1,0 +1,272 @@
+import React, { useState, useRef } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import {
+  FileSpreadsheet,
+  Users,
+  UserCheck,
+  BookMarked,
+  Banknote,
+  Receipt,
+  CheckCircle2,
+  AlertCircle,
+  FileDown,
+  Upload,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useStore } from '@/store/useStore';
+import {
+  downloadTemplate,
+  importStudents,
+  importTeachers,
+  importSubjects,
+  importPayments,
+  importExpenses,
+  TEMPLATE_CONFIGS,
+  type ImportTemplate,
+} from '@/lib/excelImport';
+
+const IMPORT_ICONS: Record<ImportTemplate, React.ReactNode> = {
+  students: <Users className="h-5 w-5" />,
+  teachers: <UserCheck className="h-5 w-5" />,
+  subjects: <BookMarked className="h-5 w-5" />,
+  payments: <Banknote className="h-5 w-5" />,
+  expenses: <Receipt className="h-5 w-5" />,
+};
+
+const IMPORT_DESCRIPTIONS: Record<ImportTemplate, string> = {
+  students: 'Importez la liste des élèves avec leurs informations personnelles',
+  teachers: 'Importez la liste des enseignants',
+  subjects: 'Importez les matières avec leurs coefficients',
+  payments: 'Importez les paiements par matricule élève',
+  expenses: 'Importez les dépenses de l\'établissement',
+};
+
+export function ExcelImportSection() {
+  const store = useStore();
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    type: ImportTemplate;
+    totalRows: number;
+    importedRows: number;
+    errors: string[];
+  } | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const handleImport = async (type: ImportTemplate, file: File) => {
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      let importedCount = 0;
+      let errors: string[] = [];
+      let totalRows = 0;
+
+      switch (type) {
+        case 'students': {
+          const defaultClass = store.classes[0];
+          if (!defaultClass) {
+            toast.error('Créez au moins une classe avant d\'importer des élèves');
+            setImporting(false);
+            return;
+          }
+          const result = await importStudents(file, store.generateMatricule, store.students, defaultClass.id);
+          totalRows = result.totalRows;
+          errors = result.errors;
+          for (const s of result.data) {
+            store.addStudent(s);
+          }
+          importedCount = result.importedRows;
+          break;
+        }
+        case 'teachers': {
+          const result = await importTeachers(file);
+          totalRows = result.totalRows;
+          errors = result.errors;
+          for (const t of result.data) {
+            store.addTeacher(t);
+          }
+          importedCount = result.importedRows;
+          break;
+        }
+        case 'subjects': {
+          const result = await importSubjects(file, store.subjects);
+          totalRows = result.totalRows;
+          errors = result.errors;
+          for (const s of result.data) {
+            store.addSubject(s);
+          }
+          importedCount = result.importedRows;
+          break;
+        }
+        case 'payments': {
+          const result = await importPayments(file, store.students, store.settings.currentAcademicYear);
+          totalRows = result.totalRows;
+          errors = result.errors;
+          for (const p of result.data) {
+            store.addPayment(p);
+          }
+          importedCount = result.importedRows;
+          break;
+        }
+        case 'expenses': {
+          const result = await importExpenses(file, store.settings.currentAcademicYear);
+          totalRows = result.totalRows;
+          errors = result.errors;
+          for (const e of result.data) {
+            store.addExpense(e);
+          }
+          importedCount = result.importedRows;
+          break;
+        }
+      }
+
+      setImportResult({ type, totalRows, importedRows: importedCount, errors });
+
+      if (importedCount > 0) {
+        toast.success(`${importedCount} ${TEMPLATE_CONFIGS[type].label.toLowerCase()} importé(e)s avec succès`);
+      }
+      if (errors.length > 0) {
+        toast.warning(`${errors.length} erreur(s) détectée(s)`);
+      }
+    } catch {
+      toast.error('Erreur lors de l\'import');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleFileChange = (type: ImportTemplate, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!validExtensions.includes(ext)) {
+      toast.error('Format non supporté. Utilisez .xlsx, .xls ou .csv');
+      return;
+    }
+
+    handleImport(type, file);
+    if (fileInputRefs.current[type]) {
+      fileInputRefs.current[type]!.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Card */}
+      <Card className="card-elevated border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-primary" />
+            Import de données Excel
+          </CardTitle>
+          <CardDescription>
+            Importez vos données existantes depuis des fichiers Excel (.xlsx, .xls) ou CSV.
+            Téléchargez d'abord un template, remplissez-le avec vos données, puis importez-le.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {/* Import Result */}
+      {importResult && (
+        <Card className={`card-elevated ${importResult.errors.length === 0 ? 'border-primary/30' : 'border-destructive/30'}`}>
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              {importResult.errors.length === 0 ? (
+                <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+              )}
+              <div className="flex-1 space-y-2">
+                <p className="font-medium">
+                  Résultat de l'import : {TEMPLATE_CONFIGS[importResult.type].label}
+                </p>
+                <div className="flex gap-4 text-sm">
+                  <span>{importResult.totalRows} ligne(s) trouvée(s)</span>
+                  <span className="text-primary">{importResult.importedRows} importée(s)</span>
+                  {importResult.errors.length > 0 && (
+                    <span className="text-destructive">{importResult.errors.length} erreur(s)</span>
+                  )}
+                </div>
+                <Progress value={(importResult.importedRows / Math.max(importResult.totalRows, 1)) * 100} className="h-2" />
+                {importResult.errors.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                      Voir les erreurs ({importResult.errors.length})
+                    </summary>
+                    <ul className="mt-2 space-y-1 text-sm text-destructive max-h-40 overflow-y-auto">
+                      {importResult.errors.map((err, i) => (
+                        <li key={i}>• {err}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Import Cards */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {(Object.keys(TEMPLATE_CONFIGS) as ImportTemplate[]).map((type) => (
+          <Card key={type} className="card-elevated">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span className="p-2 rounded-lg bg-primary/10 text-primary">
+                  {IMPORT_ICONS[type]}
+                </span>
+                {TEMPLATE_CONFIGS[type].label}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {IMPORT_DESCRIPTIONS[type]}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {TEMPLATE_CONFIGS[type].columns.filter((c) => c.required).map((col) => (
+                  <Badge key={col.key} variant="secondary" className="text-xs">
+                    {col.header} *
+                  </Badge>
+                ))}
+              </div>
+              <Separator />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadTemplate(type)}
+                  className="flex-1"
+                >
+                  <FileDown className="h-4 w-4 mr-1" />
+                  Template
+                </Button>
+                <input
+                  ref={(el) => { fileInputRefs.current[type] = el; }}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => handleFileChange(type, e)}
+                  className="hidden"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => fileInputRefs.current[type]?.click()}
+                  disabled={importing}
+                  className="flex-1 gradient-primary"
+                >
+                  <Upload className="h-4 w-4 mr-1" />
+                  Importer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}

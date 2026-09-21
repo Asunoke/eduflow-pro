@@ -17,6 +17,8 @@
     "fs:allow-mkdir",
     "fs:write-all",
     "fs:read-all",
+    "sql:default",
+    "sql:allow-execute",
     {
       "identifier": "fs:allow-write-file",
       "preference": {},
